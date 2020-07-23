@@ -2,7 +2,7 @@ mod filename_decoder;
 mod zip_central_directory;
 mod zip_eocd;
 mod zip_error;
-use ansi_term::Color::{Green, Red};
+use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
 use clap::{App, Arg};
 use std::fs::File;
@@ -14,6 +14,8 @@ use zip_eocd::ZipEOCD;
 enum InvalidArgument {
     #[error("no argument <{arg_name}> was passed")]
     NoArgument { arg_name: String },
+    #[error("unknown encoding name: {encoding_name}")]
+    InvalidEncodingName { encoding_name: String },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -31,14 +33,16 @@ fn main() -> anyhow::Result<()> {
         )
         .arg(
             Arg::with_name("list")
+                .short('l')
                 .long("list")
                 .about("Displays the list of file names in the ZIP archive.")
         )
         .arg(
-            Arg::with_name("language")
-                .long("language")
-                .short('l')
-                .about("Specifys the language of file names in the ZIP archive.")
+            Arg::with_name("encoding")
+            .long("encoding")
+            .short('e')
+            .value_name("ENCODING")
+            .about("Specifies the encoding of file names in the ZIP archive.")
         )
         .arg(
             Arg::with_name("utf-8")
@@ -60,14 +64,23 @@ fn main() -> anyhow::Result<()> {
 
     if !matches.is_present("check") && !matches.is_present("list") {
         return Err(anyhow!(
-            "Sorry without check mode has not yet been implemented.  Add {} or {} option to the arguments.", Green.bold().paint("-c").to_string(), Green.bold().paint("--list").to_string()
+            "Sorry without check mode has not yet been implemented.  Add {} or {} option to the arguments.", Green.bold().paint("-c").to_string(), Green.bold().paint("-l").to_string()
         ));
     }
+    let force_utf8 = matches.is_present("utf-8");
 
     let eocd = ZipEOCD::from_reader(&mut zip_file)?;
     eocd.check_unsupported_zip_type()?;
-    let sjis_decoder = filename_decoder::FileNameDecoder::init(None, false);
-    let utf8_decoder = filename_decoder::FileNameDecoder::init(None, true);
+    let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
+        filename_decoder::IDecoder::from_encoding_name(encoding_name).ok_or(
+            InvalidArgument::InvalidEncodingName {
+                encoding_name: encoding_name.to_string(),
+            },
+        )?
+    } else {
+        filename_decoder::IDecoder::windows_legacy_encoding()
+    };
+    let utf8_decoder = filename_decoder::IDecoder::utf8();
 
     let cd_entries = ZipCDEntry::all_from_eocd(&mut zip_file, &eocd)?;
 
@@ -111,12 +124,19 @@ fn main() -> anyhow::Result<()> {
                     Green.bold().paint("UTF-8"),
                     utf8_decoder.to_string_lossy(&cd.file_name_raw)
                 );
+            } else if force_utf8 {
+                println!(
+                    "{}:{}:{}",
+                    Yellow.bold().paint("FORCED"),
+                    Green.bold().paint("UTF-8"),
+                    utf8_decoder.to_string_lossy(&cd.file_name_raw)
+                );
             } else {
                 println!(
                     "{}:{}:{}",
                     Red.bold().paint("GUESSED"),
-                    Red.bold().paint("SJIS"),
-                    sjis_decoder.to_string_lossy(&cd.file_name_raw)
+                    Red.bold().paint(legacy_decoder.encoding_name()),
+                    legacy_decoder.to_string_lossy(&cd.file_name_raw)
                 );
             }
         }

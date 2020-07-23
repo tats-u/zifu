@@ -1,6 +1,9 @@
+use locale_config::Locale;
+
 pub trait IDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String>;
     fn to_string_lossy(&self, input: &Vec<u8>) -> String;
+    fn encoding_name(&self) -> &str;
 }
 
 struct UTF8IdentityDecoder {}
@@ -19,6 +22,9 @@ impl IDecoder for UTF8IdentityDecoder {
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
         return String::from_utf8_lossy(&input).to_string();
     }
+    fn encoding_name(&self) -> &str {
+        return "UTF-8";
+    }
 }
 
 impl IDecoder for LegacyEncodingDecoder {
@@ -32,32 +38,49 @@ impl IDecoder for LegacyEncodingDecoder {
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
         return self.decoder.decode(&input).0.into_owned();
     }
+    fn encoding_name(&self) -> &str {
+        return self.decoder.name();
+    }
 }
 
-pub struct FileNameDecoder {
-    pub language: String,
-    decoder: Box<dyn IDecoder>,
-}
+impl dyn IDecoder {
+    pub fn utf8() -> Box<dyn IDecoder> {
+        return Box::new(UTF8IdentityDecoder {});
+    }
 
-impl FileNameDecoder {
-    pub fn init(prefer_lang: Option<String>, force_utf8: bool) -> Self {
-        if force_utf8 {
-            return Self {
-                language: prefer_lang.unwrap_or("ja".to_string()),
-                decoder: Box::new(UTF8IdentityDecoder {}),
-            };
+    pub fn windows_legacy_encoding() -> Box<dyn IDecoder> {
+        let current_locale_name_full = Locale::user_default().to_string();
+        let current_locale_name = &current_locale_name_full[0..5];
+        let current_language = &current_locale_name_full[0..2];
+        return Box::new(LegacyEncodingDecoder {
+            decoder: match current_language {
+                "ja" => encoding_rs::SHIFT_JIS,
+                "zh" => match current_locale_name {
+                    "zh-CN" | "zh-SG" => encoding_rs::GBK,
+                    _ => encoding_rs::BIG5,
+                },
+                "ko" => encoding_rs::EUC_KR,
+                "th" => encoding_rs::WINDOWS_874,
+                "pl" | "cs" | "sk" | "hu" | "bs" | "hr" | "sr" | "ro" | "sq" => {
+                    encoding_rs::WINDOWS_1250
+                }
+                "ru" | "bg" | "mk" => encoding_rs::WINDOWS_1251,
+                // 1252 => fallback
+                "el" => encoding_rs::WINDOWS_1253,
+                "tr" => encoding_rs::WINDOWS_1254,
+                "he" => encoding_rs::WINDOWS_1255,
+                "ar" => encoding_rs::WINDOWS_1256,
+                "et" | "lv" | "lt" => encoding_rs::WINDOWS_1257,
+                "vi" => encoding_rs::WINDOWS_1258,
+                _ => encoding_rs::WINDOWS_1252,
+            },
+        });
+    }
+
+    pub fn from_encoding_name(name: &str) -> Option<Box<dyn IDecoder>> {
+        if let Some(decoder) = encoding_rs::Encoding::for_label(name.as_bytes()) {
+            return Some(Box::new(LegacyEncodingDecoder { decoder: decoder }));
         }
-        return Self {
-            language: prefer_lang.unwrap_or("ja".to_string()),
-            decoder: Box::new(LegacyEncodingDecoder {
-                decoder: encoding_rs::SHIFT_JIS,
-            }),
-        };
-    }
-    pub fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
-        return self.decoder.to_string_lossless(input);
-    }
-    pub fn to_string_lossy(&self, input: &Vec<u8>) -> String {
-        return self.decoder.to_string_lossy(input);
+        return None;
     }
 }
