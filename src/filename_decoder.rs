@@ -1,9 +1,11 @@
+use ansi_term::Color::{Green, Red};
 use locale_config::Locale;
 
 pub trait IDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String>;
     fn to_string_lossy(&self, input: &Vec<u8>) -> String;
     fn encoding_name(&self) -> &str;
+    fn color(&self) -> ansi_term::Color;
 }
 
 struct UTF8IdentityDecoder {}
@@ -25,6 +27,9 @@ impl IDecoder for UTF8IdentityDecoder {
     fn encoding_name(&self) -> &str {
         return "UTF-8";
     }
+    fn color(&self) -> ansi_term::Color {
+        return Green;
+    }
 }
 
 impl IDecoder for LegacyEncodingDecoder {
@@ -40,6 +45,9 @@ impl IDecoder for LegacyEncodingDecoder {
     }
     fn encoding_name(&self) -> &str {
         return self.decoder.name();
+    }
+    fn color(&self) -> ansi_term::Color {
+        return Red;
     }
 }
 
@@ -83,4 +91,20 @@ impl dyn IDecoder {
         }
         return None;
     }
+}
+
+pub fn decide_decoeder(
+    decoders: &Vec<&Box<dyn IDecoder>>,
+    strings: &Vec<&Vec<u8>>,
+) -> Option<usize> {
+    for i in 0..decoders.len() {
+        let decoder = &decoders[i];
+        if strings
+            .iter()
+            .all(|subject| decoder.to_string_lossless(subject) != None)
+        {
+            return Some(i);
+        }
+    }
+    return None;
 }

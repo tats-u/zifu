@@ -2,7 +2,7 @@ mod filename_decoder;
 mod zip_central_directory;
 mod zip_eocd;
 mod zip_error;
-use ansi_term::Color::{Green, Red, Yellow};
+use ansi_term::Color::{Green, Red};
 use anyhow::anyhow;
 use clap::{App, Arg};
 use std::fs::File;
@@ -26,6 +26,10 @@ fn main() -> anyhow::Result<()> {
                 .required(true)
             )
         .arg(
+            Arg::with_name("output")
+                .about("Path to output")
+        )
+        .arg(
             Arg::with_name("check")
                 .long("check")
                 .short('c')
@@ -48,7 +52,7 @@ fn main() -> anyhow::Result<()> {
             Arg::with_name("utf-8")
                 .long("utf8")
                 .short('u')
-                .about("Treats the encoding of the ZIP archive as UTF-8.")
+                .about("Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)")
         );
 
     let matches = app.get_matches();
@@ -62,25 +66,8 @@ fn main() -> anyhow::Result<()> {
         Some(a) => BufReader::new(File::open(a)?),
     };
 
-    if !matches.is_present("check") && !matches.is_present("list") {
-        return Err(anyhow!(
-            "Sorry without check mode has not yet been implemented.  Add {} or {} option to the arguments.", Green.bold().paint("-c").to_string(), Green.bold().paint("-l").to_string()
-        ));
-    }
-    let force_utf8 = matches.is_present("utf-8");
-
     let eocd = ZipEOCD::from_reader(&mut zip_file)?;
     eocd.check_unsupported_zip_type()?;
-    let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
-        filename_decoder::IDecoder::from_encoding_name(encoding_name).ok_or(
-            InvalidArgument::InvalidEncodingName {
-                encoding_name: encoding_name.to_string(),
-            },
-        )?
-    } else {
-        filename_decoder::IDecoder::windows_legacy_encoding()
-    };
-    let utf8_decoder = filename_decoder::IDecoder::utf8();
 
     let cd_entries = ZipCDEntry::all_from_eocd(&mut zip_file, &eocd)?;
 
@@ -115,7 +102,37 @@ fn main() -> anyhow::Result<()> {
                 .paint("All file names are not explicitly encoded in UTF-8.")
         );
         std::process::exit(1);
-    } else if matches.is_present("list") {
+    }
+
+    let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
+        filename_decoder::IDecoder::from_encoding_name(encoding_name).ok_or(
+            InvalidArgument::InvalidEncodingName {
+                encoding_name: encoding_name.to_string(),
+            },
+        )?
+    } else {
+        filename_decoder::IDecoder::windows_legacy_encoding()
+    };
+    let utf8_decoder = filename_decoder::IDecoder::utf8();
+    let decoders_list = if matches.is_present("utf-8") {
+        vec![&utf8_decoder, &legacy_decoder]
+    } else {
+        vec![&legacy_decoder, &utf8_decoder]
+    };
+    let best_fit_decoder_index_ = filename_decoder::decide_decoeder(
+        &decoders_list,
+        &cd_entries
+            .iter()
+            .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
+            .collect(),
+    );
+    best_fit_decoder_index_.ok_or(anyhow!(
+        "file names & comments are not encoded in UTF-8 or {}.  Try with -e <another encoding> option.",
+        legacy_decoder.encoding_name()
+    ))?;
+    let guessed_encoder = decoders_list[best_fit_decoder_index_.unwrap()];
+
+    if matches.is_present("list") {
         for cd in cd_entries {
             if cd.is_encoded_in_utf8() {
                 println!(
@@ -124,22 +141,20 @@ fn main() -> anyhow::Result<()> {
                     Green.bold().paint("UTF-8"),
                     utf8_decoder.to_string_lossy(&cd.file_name_raw)
                 );
-            } else if force_utf8 {
-                println!(
-                    "{}:{}:{}",
-                    Yellow.bold().paint("FORCED"),
-                    Green.bold().paint("UTF-8"),
-                    utf8_decoder.to_string_lossy(&cd.file_name_raw)
-                );
             } else {
                 println!(
                     "{}:{}:{}",
                     Red.bold().paint("GUESSED"),
-                    Red.bold().paint(legacy_decoder.encoding_name()),
-                    legacy_decoder.to_string_lossy(&cd.file_name_raw)
+                    guessed_encoder
+                        .color()
+                        .bold()
+                        .paint(guessed_encoder.encoding_name()),
+                    guessed_encoder.to_string_lossy(&cd.file_name_raw)
                 );
             }
         }
+    } else {
+        return Err(anyhow!("Sorry, correction mode is not yet implemented. Please try again with -c or -l option."));
     }
     return Ok(());
 }
