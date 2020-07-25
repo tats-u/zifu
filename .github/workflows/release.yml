@@ -1,0 +1,52 @@
+name: Rust
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-ubuntu:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/release
+          target/debug
+          target/.rustc_info.json
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+#     - name: Build
+#       run: cargo build --verbose --release
+    - name: Upload crate
+      run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
+#     - name: Create deb package
+#       run: |
+#         cargo install cargo-deb
+#         cargo deb
+    - name: Create a Release
+      uses: actions/create-release@v1
+      with:
+        # The name of the tag. This should come from the webhook payload, `github.GITHUB_REF` when a user pushes a new tag
+        tag_name: ${{ github.ref }}
+        # The name of the release. For example, `Release v1.0.1`
+        release_name: Release ${{ github.ref }}
+#     - name: Upload a Release Asset
+#       uses: actions/upload-release-asset@v1.0.2
+#       with:
+#         # The URL for uploading assets to the release
+#         upload_url: 
+#         # The path to the asset you want to upload
+#         asset_path: 
+#         # The name of the asset you want to upload
+#         asset_name: 
+#         # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
+#         asset_content_type: 
