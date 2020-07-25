@@ -1,5 +1,5 @@
 [package]
-name = "zip-filename-utf8"
+name = "zifu"
 version = "0.1.0"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
@@ -11,7 +11,7 @@ categories = ["command-line-utilities"]
 keywords = ["zip", "archive", "utf-8", "encoding"]
 
 [[bin]]
-name = "zfu"
+name = "zifu"
 path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,7 +20,7 @@ path = "src/main.rs"
 ansi_term = "0.12.1"
 clap = "3.0.0-beta.1"
 byteorder = "1.3.4"
-anyhow = "1.0.31"
+anyhow = "1.0.32"
 thiserror = "1.0.20"
 encoding_rs = "0.8.23"
 bytesize = "1.0.1"
