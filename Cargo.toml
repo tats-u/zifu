@@ -3,6 +3,12 @@ name = "zip-filename-utf8"
 version = "0.1.0"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tats-u/zifu/"
+description = "Repair corrupted file names in ZIP archives"
+categories = ["command-line-utilities"]
+keywords = ["zip", "archive", "utf-8", "encoding"]
 
 [[bin]]
 name = "zfu"
