@@ -117,10 +117,11 @@ fn main() -> anyhow::Result<()> {
         filename_decoder::IDecoder::windows_legacy_encoding()
     };
     let utf8_decoder = filename_decoder::IDecoder::utf8();
+    let ascii_decoder = filename_decoder::IDecoder::ascii();
     let decoders_list = if matches.is_present("utf-8") {
-        vec![&utf8_decoder, &legacy_decoder]
+        vec![&ascii_decoder, &utf8_decoder, &legacy_decoder]
     } else {
-        vec![&legacy_decoder, &utf8_decoder]
+        vec![&ascii_decoder, &legacy_decoder, &utf8_decoder]
     };
     let best_fit_decoder_index_ = filename_decoder::decide_decoeder(
         &decoders_list,

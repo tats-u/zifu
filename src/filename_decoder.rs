@@ -10,22 +10,42 @@ pub trait IDecoder {
 
 struct UTF8IdentityDecoder {}
 
+struct ASCIIDecoder {}
+
 struct LegacyEncodingDecoder {
     decoder: &'static encoding_rs::Encoding,
 }
 
 impl IDecoder for UTF8IdentityDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
-        return match String::from_utf8(input.to_vec()) {
-            Ok(s) => Some(s),
-            Err(_) => None,
-        };
+        return String::from_utf8(input.to_vec()).ok();
     }
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
         return String::from_utf8_lossy(&input).to_string();
     }
     fn encoding_name(&self) -> &str {
         return "UTF-8";
+    }
+    fn color(&self) -> ansi_term::Color {
+        return Green;
+    }
+}
+
+impl IDecoder for ASCIIDecoder {
+    fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
+        if input.iter().any(|c| !c.is_ascii()) {
+            return None;
+        }
+        return String::from_utf8(input.to_vec()).ok();
+    }
+    fn to_string_lossy(&self, input: &Vec<u8>) -> String {
+        return input
+            .iter()
+            .map(|c| if c.is_ascii() { *c as char } else { '?' })
+            .collect();
+    }
+    fn encoding_name(&self) -> &str {
+        return "ASCII";
     }
     fn color(&self) -> ansi_term::Color {
         return Green;
@@ -54,6 +74,9 @@ impl IDecoder for LegacyEncodingDecoder {
 impl dyn IDecoder {
     pub fn utf8() -> Box<dyn IDecoder> {
         return Box::new(UTF8IdentityDecoder {});
+    }
+    pub fn ascii() -> Box<dyn IDecoder> {
+        return Box::new(ASCIIDecoder {});
     }
 
     pub fn windows_legacy_encoding() -> Box<dyn IDecoder> {
