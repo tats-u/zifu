@@ -25,3 +25,10 @@ thiserror = "1.0.20"
 encoding_rs = "0.8.23"
 bytesize = "1.0.1"
 locale_config = "0.3.0"
+
+[package.metadata.deb]
+extended-description = """
+zifu is a command line tool to fix Windows-dependent encoded filenames of ZIP files.
+
+In general, only ASCII characters are allowed for file names in a ZIP archive. However, uninformed non-English Windows users may include files with names in their native languages. Unfortunately, the ZIP archiver in Windows implicitly encodes the file names in encodings other than UTF-8, so they are garbled when unzipped under Linux.
+This tool automatically detects the encoding of the files in the ZIP archive and explicitly re-encodes them as UTF-8, so that you can unzip them without any garbled characters even with the ZIP archiver bundled in Linux."""
