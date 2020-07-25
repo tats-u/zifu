@@ -18,7 +18,7 @@ impl IDecoder for UTF8IdentityDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
         return match String::from_utf8(input.to_vec()) {
             Ok(s) => Some(s),
-            Err(e) => None,
+            Err(_) => None,
         };
     }
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {

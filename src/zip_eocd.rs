@@ -1,5 +1,5 @@
 use super::zip_error::ZipReadError;
-use byteorder::{ReadBytesExt, LE};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 
@@ -43,7 +43,8 @@ impl ZipEOCD {
         read: &mut T,
     ) -> Result<bool, std::io::Error> {
         self.starting_position_without_signature = read.seek(SeekFrom::Current(0))?;
-        self.starting_position_with_signature = self.starting_position_without_signature - EOCD_MAGIC.len() as u64;
+        self.starting_position_with_signature =
+            self.starting_position_without_signature - EOCD_MAGIC.len() as u64;
         self.eocd_disk_index = read.read_u16::<LE>()?;
         self.cd_start_disk_index = read.read_u16::<LE>()?;
         self.n_cd_entries_in_disk = read.read_u16::<LE>()?;
@@ -79,6 +80,19 @@ impl ZipEOCD {
             starting_position_with_signature: 0,
             starting_position_without_signature: 0,
         };
+    }
+
+    pub fn write<T: WriteBytesExt>(&self, write: &mut T) -> std::io::Result<()> {
+        write.write_all(&EOCD_MAGIC)?;
+        write.write_u16::<LE>(self.eocd_disk_index)?;
+        write.write_u16::<LE>(self.cd_start_disk_index)?;
+        write.write_u16::<LE>(self.n_cd_entries_in_disk)?;
+        write.write_u16::<LE>(self.n_cd_entries)?;
+        write.write_u32::<LE>(self.cd_size)?;
+        write.write_u32::<LE>(self.cd_starting_position)?;
+        write.write_u16::<LE>(self.comment_length)?;
+        write.write_all(self.comment.as_slice())?;
+        return Ok(());
     }
 
     pub fn from_reader<T: ReadBytesExt + std::io::Seek>(
@@ -126,7 +140,9 @@ impl ZipEOCD {
             pos += 1;
         }
         return Err(ZipReadError::InvalidZipArchive {
-            reason: format!("valid central directory signature (PK\\x05\\x06) was not found"),
+            reason: format!(
+                "valid end of central directory signature (PK\\x05\\x06) was not found"
+            ),
         });
     }
 

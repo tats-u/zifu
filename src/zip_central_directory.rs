@@ -1,6 +1,6 @@
 use super::zip_eocd::ZipEOCD;
 use super::zip_error::ZipReadError;
-use byteorder::{ReadBytesExt, LE};
+use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use bytesize::ByteSize;
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -127,14 +127,22 @@ impl ZipCDEntry {
         }
         return Ok(());
     }
+    pub fn set_utf8_encoded_flag(&mut self) {
+        self.general_purpose_flags |= UTF8_FLAG_BIT;
+    }
+    pub fn set_file_name_from_slice(&mut self, name: &Vec<u8>) {
+        self.file_name_length = name.len() as u16;
+        self.file_name_raw.clone_from(name);
+    }
+    pub fn set_file_coment_from_slice(&mut self, comment: &Vec<u8>) {
+        self.file_comment_length = comment.len() as u16;
+        self.file_comment.clone_from(comment);
+    }
     pub fn is_encoded_in_utf8(&self) -> bool {
         return (UTF8_FLAG_BIT & self.general_purpose_flags) != 0;
     }
     pub fn is_encrypted_data(&self) -> bool {
         return (DATA_ENCRYPTED_FLAG_BIT & self.general_purpose_flags) != 0;
-    }
-    fn has_data_descriptor_by_flag(&self) -> bool {
-        return (DATA_DESCRIPTOR_EXISTS_FLAG_BIT & self.general_purpose_flags) != 0;
     }
     pub fn check_unsupported(&self) -> Result<(), ZipReadError> {
         if self.disk_number_start != 0 {
@@ -149,9 +157,34 @@ impl ZipCDEntry {
         }
         return Ok(());
     }
+    pub fn write<T: WriteBytesExt>(&self, write: &mut T) -> std::io::Result<u64> {
+        write.write_all(&CD_MAGIC)?;
+        write.write_u16::<LE>(self.version_made_by)?;
+        write.write_u16::<LE>(self.version_required_to_extract)?;
+        write.write_u16::<LE>(self.general_purpose_flags)?;
+        write.write_u16::<LE>(self.compression_method)?;
+        write.write_u16::<LE>(self.last_mod_time)?;
+        write.write_u16::<LE>(self.last_mod_date)?;
+        write.write_u32::<LE>(self.crc32)?;
+        write.write_u32::<LE>(self.compressed_size)?;
+        write.write_u32::<LE>(self.uncompressed_size)?;
+        write.write_u16::<LE>(self.file_name_length)?;
+        write.write_u16::<LE>(self.extra_field_length)?;
+        write.write_u16::<LE>(self.file_comment_length)?;
+        write.write_u16::<LE>(self.disk_number_start)?;
+        write.write_u16::<LE>(self.internal_file_attributes)?;
+        write.write_u32::<LE>(self.external_file_attributes)?;
+        write.write_u32::<LE>(self.local_header_position)?;
+        write.write_all(self.file_name_raw.as_slice())?;
+        write.write_all(self.extra_field.as_slice())?;
+        write.write_all(self.file_comment.as_slice())?;
+        return Ok(46
+            + self.file_name_length as u64
+            + self.extra_field_length as u64
+            + self.file_comment_length as u64);
+    }
     fn from_eocd_with_signature<T: ReadBytesExt + std::io::Seek>(
         read: &mut T,
-        eocd: &ZipEOCD,
     ) -> Result<Self, ZipReadError> {
         let mut signature_candidate: [u8; 4] = [0; 4];
         let start_pos = read.seek(SeekFrom::Current(0))?;
@@ -175,7 +208,7 @@ impl ZipCDEntry {
         read.seek(SeekFrom::Start(eocd.cd_starting_position as u64))?;
         let mut result: Vec<Self> = vec![];
         for _ in 0..eocd.n_cd_entries {
-            result.push(Self::from_eocd_with_signature(&mut read, &eocd)?);
+            result.push(Self::from_eocd_with_signature(&mut read)?);
         }
         let end_pos = read.seek(SeekFrom::Current(0))?;
         if end_pos != eocd.starting_position_with_signature {
