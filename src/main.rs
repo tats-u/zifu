@@ -3,7 +3,7 @@ mod zip_central_directory;
 mod zip_eocd;
 mod zip_error;
 mod zip_local_file_header;
-use ansi_term::Color::{Green, Red};
+use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
 use clap::{App, Arg};
 use std::fs::File;
@@ -85,6 +85,32 @@ fn main() -> anyhow::Result<()> {
                 Green
                     .bold()
                     .paint("All file names are explicitly encoded in UTF-8.")
+            );
+            return Ok(());
+        }
+        let ascii_decoder = filename_decoder::IDecoder::ascii();
+        if filename_decoder::decide_decoeder(
+            &vec![&ascii_decoder],
+            &cd_entries
+                .iter()
+                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
+                .collect(),
+        )
+        .is_some()
+        {
+            println!(
+                "{}  {}",
+                Yellow.bold().paint(
+                    if utf8_entries_count > 0 {
+                        format!(
+                            "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
+                            utf8_entries_count,
+                            eocd.n_cd_entries as usize - utf8_entries_count,
+                        )
+                    } else {
+                        "All file names are implicitly encoded in ASCII.".to_string()
+                    }),
+                Green.bold().paint("They can be extracted correctly in all environments without garbling.")
             );
             return Ok(());
         }
