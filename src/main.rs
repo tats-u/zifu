@@ -114,7 +114,7 @@ fn main() -> anyhow::Result<()> {
             },
         )?
     } else {
-        filename_decoder::IDecoder::windows_legacy_encoding()
+        filename_decoder::IDecoder::native_oem_encoding()
     };
     let utf8_decoder = filename_decoder::IDecoder::utf8();
     let ascii_decoder = filename_decoder::IDecoder::ascii();

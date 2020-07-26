@@ -4,8 +4,8 @@
 
 Have you ever received zip files from other OS users and when you decompressed them, their non-English file name were completely garbled, or when you sent zip files to other OS users, you were told that non-English file names were garbled?
 
-This tool checks if file names in zip archives can be decompressed without garbling on all operating systems and languages (i.e. explicitly encoded in UTF-8) and repairs them if not.
 
+This tool checks if file names in zip archives can be decompressed without garbling on all operating systems and languages (i.e. explicitly encoded in UTF-8) and repairs them if not.
 # インストール / How to install
 
 ```
@@ -32,6 +32,14 @@ ZIPファイルのファイル一覧をチェックするには、次のコマ�
 zifu -l <ZIPファイルのパス>
 ```
 
+海外で作成されたZIPファイルの名前を表示・もしくは修復する場合は`-e <エンコーディング>`オプションを使用します。例えば、次のコマンドでアメリカで作成されたZIPファイルのファイル名を表示します。
+
+```
+zifu -l -e cp437 <ZIPファイルのパス>
+``` 
+
+また、非常にレアケースですが、Shift-JISではなく、UTF-8を優先して使用したい場合、`-u`オプションを利用します。
+
 # How to use
 
 To repair a ZIP file, run the following command:
@@ -46,11 +54,35 @@ To check if a ZIP file is explicitly encoded in UTF-8, run the following command
 zifu -c <Path to ZIP file>
 ```
 
-To list file names in a zip file, ru the following command:
+To list file names in a zip file, rum the following command:
 
 ```
-zifu -l <ZIPファイルのパス>
+zifu -l <Path to ZIP file>
 ```
+
+To show file names or repair ZIP archives created outside of your country, add `-e <Encoding>` option.  For example, if you get a ZIP archive from Japan, try:
+
+```
+zifu -e sjis -l <Path to ZIP file>
+```
+
+Japanese characters will corrected appear.
+
+If you prefer UTF-8 than the encoding of your language, add `-u` option.  This is important if you speak English, Thai, or Vietnamese.  Encodings of Chinese, Japanese, and Korean usually cannot decode strings encoded in UTF-8 without error, so there is little need to add it if you speak them.
+
+# 制限事項 / Restriction
+
+以下の言語以外非対応です。 / Only these languages are supported:
+カッコ内は主要なエンコーディングです。 / Primary encodings are given in parenthesis.
+
+- 日本語 / Japanese (Shift-JIS / EUC-JP)
+- 中国語 / Chinese (GBK / BIG5)
+- 韓国語 / Korean (EUC-KR)
+- ベトナム語 / Vietnamese (Windows-1258)
+- タイ語 / Thai (Windows-874)
+- 英語 / English (CP437)
+
+非対応の言語では、CP437が使用されます。 / CP437 will be used in unsupported languages.
 
 # ライセンス
 
