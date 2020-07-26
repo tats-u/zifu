@@ -5,6 +5,7 @@ use bytesize::ByteSize;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 
+/// Magic number of central directory
 const CD_MAGIC: [u8; 4] = [0x50, 0x4b, 0x1, 0x2];
 
 // bit #0 (0x0001 = 1 << 0)
@@ -15,6 +16,7 @@ pub const DATA_DESCRIPTOR_EXISTS_FLAG_BIT: u16 = 0x0008;
 pub const UTF8_FLAG_BIT: u16 = 0x0800;
 
 /// ZIPファイルのセントラルディレクトリの1エントリー
+/// An entry of central directory of ZIP file
 pub struct ZipCDEntry {
     pub version_made_by: u16,
     pub version_required_to_extract: u16,

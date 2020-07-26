@@ -5,34 +5,46 @@ use std::io::SeekFrom;
 
 const EOCD_MAGIC: [u8; 4] = [0x50, 0x4b, 0x5, 0x6];
 
-/// EOCD (End of Central Directory) 情報を保持する構造体
+/// EOCD (End of Central Directory) 情報を保持する構造体 /
+/// Structure that contains EOCD (End of Central Directory) information
 pub struct ZipEOCD {
-    /// EOCDが存在するディスク番号 (0起算)
+    /// EOCDが存在するディスク番号 (0起算) /
+    /// number of the disk where EOCD exists (0-based)
     pub eocd_disk_index: u16,
-    /// セントラルディレクトリが始まるディスク番号 (0起算)
+    /// セントラルディレクトリが始まるディスク番号 (0起算) /
+    /// number of the disk with the start of the central directory (0-based)
     pub cd_start_disk_index: u16,
-    /// EOCDがあるディスク内のセントラルディレクトリ総数
+    /// EOCDがあるディスク内のセントラルディレクトリ総数 /
+    /// total number of entries in the central directory on the disk whare EOCD exists
     pub n_cd_entries_in_disk: u16,
-    /// セントラルディレクトリ総数
+    /// セントラルディレクトリ総数 /
+    /// total number of entries in the central directory
     pub n_cd_entries: u16,
-    /// セントラルディレクトリのサイズ
+    /// セントラルディレクトリのサイズ /
+    /// size of the central directory
     pub cd_size: u32,
-    /// セントラルディレクトリ開始位置 (絶対)
+    /// セントラルディレクトリ開始位置 (絶対・0起算)
+    /// offset of start of central directory (with respect to the starting disk number) (absolute value; 0-based)
     pub cd_starting_position: u32,
     /// ZIPコメント長
+    /// ZIP file comment length
     pub comment_length: u16,
     /// ZIPコメント
+    /// ZIP file comment
     pub comment: Vec<u8>,
 
-    // EOCDのエントリここまで
-    /// EOCDの開始位置 (マジックナンバー)
+    // EOCDのエントリここまで / End of EOCD entries
+    /// EOCDの開始位置 (マジックナンバー) /
+    /// (magick number of) EOCD starting position
     pub starting_position_with_signature: u64,
-    /// EOCDの開始位置 (マジックナンバーすぐ次)
+    /// EOCDの開始位置 (マジックナンバーすぐ次) /
+    /// EOCD starting position (next to magick number)
     pub starting_position_without_signature: u64,
 }
 
 impl ZipEOCD {
-    /// EOCDのマジックナンバーの次の文字が読み取り位置である`Read`オブジェクトから、EOCD情報オブジェクトを生成
+    /// EOCDのマジックナンバーの次の文字が読み取り位置である`Read`オブジェクトから、EOCD情報オブジェクトを生成 /
+    /// Generates an EOCD information object from a `Read` object whose read position is the next character of the magic number of the EOCD.
     ///
     /// # Arguments
     ///
@@ -66,7 +78,8 @@ impl ZipEOCD {
         return Ok(true);
     }
 
-    ///空のEOCDオブジェクトを生成
+    ///空のEOCDオブジェクトを生成 /
+    /// Generates an empty EOCD object
     fn empty() -> ZipEOCD {
         return ZipEOCD {
             eocd_disk_index: 0,
@@ -82,6 +95,11 @@ impl ZipEOCD {
         };
     }
 
+    /// Writes EOCD to stream.
+    /// 
+    /// # Errors
+    /// 
+    /// Returns an error if writing fails.
     pub fn write<T: WriteBytesExt>(&self, write: &mut T) -> std::io::Result<()> {
         write.write_all(&EOCD_MAGIC)?;
         write.write_u16::<LE>(self.eocd_disk_index)?;
@@ -146,12 +164,14 @@ impl ZipEOCD {
         });
     }
 
-    /// 分割されたZIPファイルでなければtrue
+    /// 分割されたZIPファイルでなければtrue /
+    /// Returns `true` if ZIP archive is NOT splitted
     pub fn is_single_archive(&self) -> bool {
         return self.eocd_disk_index == 0 && self.n_cd_entries == self.n_cd_entries_in_disk;
     }
 
-    /// ZIP64ならtrue
+    /// ZIP64ならtrue /
+    /// Returns `true` if ZIP archive is ZIP64
     pub fn is_zip64(&self) -> bool {
         // Prioritize the ones that are likely to overflow.
         return self.cd_starting_position == u32::MAX
@@ -162,6 +182,11 @@ impl ZipEOCD {
             || self.cd_start_disk_index == u16::MAX;
     }
 
+    /// Checks if ZIP archive is not supported.
+    /// 
+    /// # Errors
+    /// 
+    /// If not supported, returns `ZipReadError`. 
     pub fn check_unsupported_zip_type(&self) -> Result<(), ZipReadError> {
         if !self.is_single_archive() {
             return Err(ZipReadError::UnsupportedZipArchive {

@@ -3,6 +3,7 @@ use codepage_437::{FromCp437, CP437_CONTROL};
 use locale_config::Locale;
 use unicode_normalization::UnicodeNormalization;
 
+/// Trait (interface) of decoder
 pub trait IDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String>;
     fn to_string_lossy(&self, input: &Vec<u8>) -> String;
@@ -10,10 +11,22 @@ pub trait IDecoder {
     fn color(&self) -> ansi_term::Color;
 }
 
+/// UTF-8 decoder
+/// 
+/// Also normalize NFD encoded names to NFC.
+/// FIXME: We must only convert characters designated in Apple's website: https://developer.apple.com/library/archive/technotes/tn/tn1150table.html
 struct UTF8NFCDecoder {}
 
+/// ASCII decoder
+/// 
+/// Allows only <= U+7F characters
 struct ASCIIDecoder {}
 
+/// CP437 decoder
+/// 
+/// OEM code page (used for ZIP file names) for English
+/// 
+/// Single byte & can decode all 256 code points
 struct CP437Decoder {}
 
 struct LegacyEncodingDecoder {
