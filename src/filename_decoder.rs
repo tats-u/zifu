@@ -1,6 +1,7 @@
 use ansi_term::Color::{Green, Red};
 use codepage_437::{FromCp437, CP437_CONTROL};
 use locale_config::Locale;
+use unicode_normalization::UnicodeNormalization;
 
 pub trait IDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String>;
@@ -9,7 +10,7 @@ pub trait IDecoder {
     fn color(&self) -> ansi_term::Color;
 }
 
-struct UTF8IdentityDecoder {}
+struct UTF8NFCDecoder {}
 
 struct ASCIIDecoder {}
 
@@ -19,12 +20,14 @@ struct LegacyEncodingDecoder {
     decoder: &'static encoding_rs::Encoding,
 }
 
-impl IDecoder for UTF8IdentityDecoder {
+impl IDecoder for UTF8NFCDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
-        return String::from_utf8(input.to_vec()).ok();
+        return String::from_utf8(input.to_vec())
+            .map(|s| s.nfc().collect::<String>())
+            .ok();
     }
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
-        return String::from_utf8_lossy(&input).to_string();
+        return String::from_utf8_lossy(&input).nfc().collect::<String>();
     }
     fn encoding_name(&self) -> &str {
         return "UTF-8";
@@ -91,7 +94,7 @@ impl IDecoder for LegacyEncodingDecoder {
 
 impl dyn IDecoder {
     pub fn utf8() -> Box<dyn IDecoder> {
-        return Box::new(UTF8IdentityDecoder {});
+        return Box::new(UTF8NFCDecoder {});
     }
     pub fn ascii() -> Box<dyn IDecoder> {
         return Box::new(ASCIIDecoder {});
