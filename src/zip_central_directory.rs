@@ -8,42 +8,93 @@ use std::io::SeekFrom;
 /// Magic number of central directory
 const CD_MAGIC: [u8; 4] = [0x50, 0x4b, 0x1, 0x2];
 
-// bit #0 (0x0001 = 1 << 0)
+/// bit #0 (0x0001 = 1 << 0) of general purpose bit flag
 pub const DATA_ENCRYPTED_FLAG_BIT: u16 = 0x0001;
-// bit #3 (0x0008 = 1 << 3)
+/// bit #3 (0x0008 = 1 << 3) of general purpose bit flag
 pub const DATA_DESCRIPTOR_EXISTS_FLAG_BIT: u16 = 0x0008;
-// bit #11 (0x0800 = 1 << 11)
+/// bit #11 (0x0800 = 1 << 11) of general purpose bit flag
 pub const UTF8_FLAG_BIT: u16 = 0x0800;
 
 /// ZIPファイルのセントラルディレクトリの1エントリー
 /// An entry of central directory of ZIP file
 pub struct ZipCDEntry {
+    /// As the name implies; see 4.4.2 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub version_made_by: u16,
+    /// As the name implies; see 4.4.3 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub version_required_to_extract: u16,
+    /// See 4.4.4 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// bit #n reprents 1 << n in little endian
+    ///
+    /// Unaffected by file renaming
     pub general_purpose_flags: u16,
+    /// As the name implies; see 4.4.5 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub compression_method: u16,
+    /// As the name implies; see 4.4.6 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// MS-DOS time: http://www.ffortune.net/calen/calen/etime.htm (Japanese)
+    ///
+    /// Unaffected by file renaming
     pub last_mod_time: u16,
+    /// As the name implies; see 4.4.6 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// MS-DOS time: http://www.ffortune.net/calen/calen/etime.htm (Japanese)
+    ///
+    /// Unaffected by file renaming
     pub last_mod_date: u16,
+    /// See 4.4.7 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub crc32: u32,
+    /// As the name implies.  Note that the file name is not included.
     pub compressed_size: u32,
+    /// As the name implies.  Note that the file name is not included.
     pub uncompressed_size: u32,
+    /// As the name implies.
     pub file_name_length: u16,
+    /// As the name implies.
     pub extra_field_length: u16,
+    /// As the name implies.
     pub file_comment_length: u16,
+    /// the number (0-baesd) of the disk where the file for this central directory is.
+    ///
+    /// Unaffected by file renaming
     pub disk_number_start: u16,
+    /// See 4.4.14 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub internal_file_attributes: u16,
+    /// See 4.4.15 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub external_file_attributes: u32,
+    /// **Absolute** 0-based position of the local header for this central directory
     pub local_header_position: u32,
-
+    /// Byte sequence of the file name.
     pub file_name_raw: Vec<u8>,
+    /// Byte sequence of extra field
     pub extra_field: Vec<u8>,
+    /// File comment; must be encoded in the same encoding as the file name.
     pub file_comment: Vec<u8>,
 
+    // セントラルディレクトリのエントリここまで / End of central directory entries
+    /// セントラルディレクトリの開始位置 (マジックナンバー) /
+    /// (magick number of) central directory starting position
     pub starting_position_with_signature: u64,
+    /// セントラルディレクトリの開始位置 (マジックナンバーすぐ次) /
+    /// Central directory starting position (next to magick number)
     pub starting_position_without_signature: u64,
 }
 
 impl ZipCDEntry {
+    ///空のセントラルディレクトリオブジェクトを生成 /
+    /// Generates an empty central directory object
     fn empty() -> Self {
         return Self {
             version_made_by: 0,
@@ -70,6 +121,10 @@ impl ZipCDEntry {
         };
     }
 
+    /// Reads from next to the signature (magick number) of the central directory.
+    ///
+    /// # Arguments
+    /// * `read` - `Read` object (must be at the next to the signature)
     fn read_from_eocd_next_signature<T: ReadBytesExt + std::io::Seek>(
         &mut self,
         read: &mut T,
@@ -129,23 +184,37 @@ impl ZipCDEntry {
         }
         return Ok(());
     }
+    /// Sets bit #11 of general purpose bit to indicate that the file name & comment are encoded in UTF-8.
     pub fn set_utf8_encoded_flag(&mut self) {
         self.general_purpose_flags |= UTF8_FLAG_BIT;
     }
+    /// Replaces the file name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Slice of new name
     pub fn set_file_name_from_slice(&mut self, name: &Vec<u8>) {
         self.file_name_length = name.len() as u16;
         self.file_name_raw.clone_from(name);
     }
+    /// Replaces the file comment
+    ///
+    /// # Arguments
+    ///
+    /// * `comment` - Slice of new comment
     pub fn set_file_coment_from_slice(&mut self, comment: &Vec<u8>) {
         self.file_comment_length = comment.len() as u16;
         self.file_comment.clone_from(comment);
     }
+    /// Returns whether the file name and comment are explicitly encoded in UTF-8
     pub fn is_encoded_in_utf8(&self) -> bool {
         return (UTF8_FLAG_BIT & self.general_purpose_flags) != 0;
     }
+    /// Returns whether the file content is encrypted
     pub fn is_encrypted_data(&self) -> bool {
         return (DATA_ENCRYPTED_FLAG_BIT & self.general_purpose_flags) != 0;
     }
+    /// Returns `Error` if the file and central directory have unsupported features
     pub fn check_unsupported(&self) -> Result<(), ZipReadError> {
         if self.disk_number_start != 0 {
             return Err(ZipReadError::UnsupportedZipArchive {
@@ -159,6 +228,11 @@ impl ZipCDEntry {
         }
         return Ok(());
     }
+    /// Writes the content of this central directory to file and returns the number of bytes written.
+    ///
+    /// # Arguments
+    ///
+    /// * `write` - file handler
     pub fn write<T: WriteBytesExt>(&self, write: &mut T) -> std::io::Result<u64> {
         write.write_all(&CD_MAGIC)?;
         write.write_u16::<LE>(self.version_made_by)?;
@@ -185,7 +259,12 @@ impl ZipCDEntry {
             + self.extra_field_length as u64
             + self.file_comment_length as u64);
     }
-    fn from_eocd_with_signature<T: ReadBytesExt + std::io::Seek>(
+    /// Examines the signature, reads the central directory and returns an instance that represents it
+    ///
+    /// # Arguments
+    ///
+    /// * `read` - file handler (must be at the head of the signature)
+    fn read_and_generate_from_signature<T: ReadBytesExt + std::io::Seek>(
         read: &mut T,
     ) -> Result<Self, ZipReadError> {
         let mut signature_candidate: [u8; 4] = [0; 4];
@@ -203,6 +282,12 @@ impl ZipCDEntry {
         result.read_from_eocd_next_signature(read)?;
         return Ok(result);
     }
+    /// Reads and returns a central directory sequence from the given EOCD
+    ///
+    /// # Arguments
+    ///
+    /// * `read` - file handler
+    /// * `eocd` - EOCD object
     pub fn all_from_eocd<T: ReadBytesExt + std::io::Seek>(
         mut read: &mut T,
         eocd: &ZipEOCD,
@@ -210,7 +295,7 @@ impl ZipCDEntry {
         read.seek(SeekFrom::Start(eocd.cd_starting_position as u64))?;
         let mut result: Vec<Self> = vec![];
         for _ in 0..eocd.n_cd_entries {
-            result.push(Self::from_eocd_with_signature(&mut read)?);
+            result.push(Self::read_and_generate_from_signature(&mut read)?);
         }
         let end_pos = read.seek(SeekFrom::Current(0))?;
         if end_pos != eocd.starting_position_with_signature {

@@ -3,6 +3,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 
+/// magick number of EOCD
 const EOCD_MAGIC: [u8; 4] = [0x50, 0x4b, 0x5, 0x6];
 
 /// EOCD (End of Central Directory) 情報を保持する構造体 /
@@ -96,9 +97,9 @@ impl ZipEOCD {
     }
 
     /// Writes EOCD to stream.
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if writing fails.
     pub fn write<T: WriteBytesExt>(&self, write: &mut T) -> std::io::Result<()> {
         write.write_all(&EOCD_MAGIC)?;
@@ -183,10 +184,10 @@ impl ZipEOCD {
     }
 
     /// Checks if ZIP archive is not supported.
-    /// 
+    ///
     /// # Errors
-    /// 
-    /// If not supported, returns `ZipReadError`. 
+    ///
+    /// If not supported, returns `ZipReadError`.
     pub fn check_unsupported_zip_type(&self) -> Result<(), ZipReadError> {
         if !self.is_single_archive() {
             return Err(ZipReadError::UnsupportedZipArchive {

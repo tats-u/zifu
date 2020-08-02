@@ -149,6 +149,7 @@ fn main() -> anyhow::Result<()> {
     } else {
         vec![&ascii_decoder, &legacy_decoder, &utf8_decoder]
     };
+    // Detect encoding by trying decoding all of file names and comments
     let best_fit_decoder_index_ = filename_decoder::decide_decoeder(
         &decoders_list,
         &cd_entries
@@ -199,7 +200,9 @@ fn main() -> anyhow::Result<()> {
         }
 
         let mut output_zip_file = BufWriter::new(File::create(output_zip_file_str)?);
+        // Writer can't get the current position, so we must record it by ourselves.
         let mut pos: u64 = 0;
+        // Local header (including contents)
         for cd in &mut cd_entries {
             let mut local_header =
                 zip_local_file_header::ZipLocalFileHeader::from_central_directory(
@@ -221,11 +224,13 @@ fn main() -> anyhow::Result<()> {
             cd.local_header_position = pos as u32;
             pos += local_header.write(&mut output_zip_file)?;
         }
+        // Central directory
         eocd.cd_starting_position = pos as u32;
         let mut cd_new_size: u64 = 0;
         for cd in cd_entries {
             cd_new_size += cd.write(&mut output_zip_file)?;
         }
+        // EOCD
         eocd.cd_size = cd_new_size as u32;
         eocd.write(&mut output_zip_file)?;
     }

@@ -4,11 +4,20 @@ use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 
+/// magick number of local file header
 const LOCAL_FILE_MAGIC: [u8; 4] = [0x50, 0x4b, 0x3, 0x4];
 
+/// Class for Data Descriptor
+///
+/// Used when bit #3 of general purpose bit of lcoal header or central directory is set
 pub struct ZipDataDescriptor {
+    /// See 4.4.7 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub crc32: u32,
+    /// As the name implies.  Note that the file name is not included.
     pub compressed_size: u32,
+    /// As the name implies.  Note that the file name is not included.
     pub uncompressed_size: u32,
 }
 
@@ -35,26 +44,66 @@ impl ZipDataDescriptor {
     }
 }
 
+/// An entry of local header of ZIP file
 pub struct ZipLocalFileHeader {
+    /// As the name implies; see 4.4.3 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub version_required_to_extract: u16,
+    /// See 4.4.4 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// bit #n reprents 1 << n in little endian
+    ///
+    /// Unaffected by file renaming
     pub general_purpose_flags: u16,
+    /// As the name implies; see 4.4.5 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub compression_method: u16,
+    /// As the name implies; see 4.4.6 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// MS-DOS time: http://www.ffortune.net/calen/calen/etime.htm (Japanese)
+    ///
+    /// Unaffected by file renaming
     pub last_mod_time: u16,
+    /// As the name implies; see 4.4.6 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// MS-DOS time: http://www.ffortune.net/calen/calen/etime.htm (Japanese)
+    ///
+    /// Unaffected by file renaming
     pub last_mod_date: u16,
+    /// See 4.4.7 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+    ///
+    /// Unaffected by file renaming
     pub crc32: u32,
+    /// As the name implies.  Note that the file name is not included.
     pub compressed_size: u32,
+    /// As the name implies.  Note that the file name is not included.
     pub uncompressed_size: u32,
+    /// As the name implies.
     pub file_name_length: u16,
+    /// As the name implies.
     pub extra_field_length: u16,
+    /// Byte sequence of the file name.
     pub file_name_raw: Vec<u8>,
+    /// Byte sequence of extra field
     pub extra_field: Vec<u8>,
+    /// File content
     pub compressed_data: Vec<u8>,
+    /// Data descriptor just after the file content (exists only when bit #3 of general purpose flag is set)
     pub data_descriptor: Option<ZipDataDescriptor>,
+    // ローカルファイルヘッダのエントリここまで / End of local file header entries
+    /// ローカルファイルヘッダの開始位置 (マジックナンバー) /
+    /// (magick number of) local file header starting position
     pub starting_position_with_signature: u64,
+    /// ローカルファイルヘッダの開始位置 (マジックナンバーすぐ次) /
+    /// Local file header starting position (next to magick number)
     pub starting_position_without_signature: u64,
 }
 
 impl ZipLocalFileHeader {
+    ///空のローカルファイルヘッダオブジェクトを生成 /
+    /// Generates an empty local file header object
     fn empty() -> Self {
         return Self {
             version_required_to_extract: 0,
@@ -76,6 +125,10 @@ impl ZipLocalFileHeader {
         };
     }
 
+    /// Reads from next to the signature (magick number) of the local file header.
+    ///
+    /// # Arguments
+    /// * `read` - `Read` object (must be at the next to the signature)
     fn read_without_signature<T: ReadBytesExt + std::io::Seek>(
         &mut self,
         read: &mut T,
@@ -132,18 +185,35 @@ impl ZipLocalFileHeader {
         return Ok(());
     }
 
+    /// Sets bit #11 of general purpose bit to indicate that the file name & comment are encoded in UTF-8.
     pub fn set_utf8_encoded_flag(&mut self) {
         self.general_purpose_flags |= UTF8_FLAG_BIT;
     }
+
+    /// Replaces the file name.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - Slice of new name
     pub fn set_file_name_from_slice(&mut self, name: &Vec<u8>) {
         self.file_name_length = name.len() as u16;
         self.file_name_raw.clone_from(name);
     }
 
+    /// Replaces the file comment
+    ///
+    /// # Arguments
+    ///
+    /// * `comment` - Slice of new comment
     fn has_data_descriptor_by_flag(&self) -> bool {
         return (DATA_DESCRIPTOR_EXISTS_FLAG_BIT & self.general_purpose_flags) != 0;
     }
 
+    /// Examines the signature, reads the local file header and returns an instance that represents it
+    ///
+    /// # Arguments
+    ///
+    /// * `read` - file handler (must be at the head of the signature)
     pub fn from_central_directory<T: ReadBytesExt + std::io::Seek>(
         read: &mut T,
         cd: &ZipCDEntry,
@@ -164,6 +234,12 @@ impl ZipLocalFileHeader {
         ret.read_without_signature(read)?;
         return Ok(ret);
     }
+
+    /// Writes the content of this local file header to file and returns the number of bytes written.
+    ///
+    /// # Arguments
+    ///
+    /// * `write` - file handler
     pub fn write<T: WriteBytesExt>(&self, write: &mut T) -> std::io::Result<u64> {
         let mut bytes_written = 30
             + self.file_name_length as u64

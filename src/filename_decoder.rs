@@ -5,31 +5,49 @@ use unicode_normalization::UnicodeNormalization;
 
 /// Trait (interface) of decoder
 pub trait IDecoder {
+    /// Converts to UTF-8 `String` only if possible completely
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - sequence of bytes that may represent a string
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String>;
+    /// Converts to UTF-8 `String` by force (filling with replacement characters)
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - sequence of bytes that may represent a string
     fn to_string_lossy(&self, input: &Vec<u8>) -> String;
+    /// Returns the name of the encoding that the decoder uses
     fn encoding_name(&self) -> &str;
+    /// Returns enumerates `ansi_term::Color`
+    ///
+    /// Green -> desirable / Red -> undesirable
     fn color(&self) -> ansi_term::Color;
 }
 
 /// UTF-8 decoder
-/// 
+///
 /// Also normalize NFD encoded names to NFC.
 /// FIXME: We must only convert characters designated in Apple's website: https://developer.apple.com/library/archive/technotes/tn/tn1150table.html
 struct UTF8NFCDecoder {}
 
 /// ASCII decoder
-/// 
+///
 /// Allows only <= U+7F characters
 struct ASCIIDecoder {}
 
 /// CP437 decoder
-/// 
+///
 /// OEM code page (used for ZIP file names) for English
-/// 
+///
 /// Single byte & can decode all 256 code points
 struct CP437Decoder {}
 
+/// Asian ANSI+OEM codepages decoder
+///
+/// Use encoding_rs (CJKV + Thai)
 struct LegacyEncodingDecoder {
+    /// `Encoding` object (e.g. `encoding_rs::SHIFT_JIS` for Shift-JIS)
     decoder: &'static encoding_rs::Encoding,
 }
 
@@ -55,6 +73,7 @@ impl IDecoder for ASCIIDecoder {
         if input.iter().any(|c| !c.is_ascii()) {
             return None;
         }
+        // UTF-8 is upper compatible with ASCII
         return String::from_utf8(input.to_vec()).ok();
     }
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
@@ -106,13 +125,18 @@ impl IDecoder for LegacyEncodingDecoder {
 }
 
 impl dyn IDecoder {
+    /// Returns UTF-8 decoder
     pub fn utf8() -> Box<dyn IDecoder> {
         return Box::new(UTF8NFCDecoder {});
     }
+    /// Returns ASCII decoder
     pub fn ascii() -> Box<dyn IDecoder> {
         return Box::new(ASCIIDecoder {});
     }
 
+    /// Returns native OEM code pages for the current locale
+    ///
+    /// Supported: CJKV / Thai / CP437 (English)
     pub fn native_oem_encoding() -> Box<dyn IDecoder> {
         let current_locale_name_full = Locale::user_default().to_string();
         let current_locale_name = &current_locale_name_full[0..5];
@@ -143,9 +167,16 @@ impl dyn IDecoder {
                 decoder: encoding.unwrap(),
             });
         }
+        // FIXME: get OEM code page list for languages outside East & Southeast Asian languages
+        // FIXME: develop or seek for libraries for OEM code pages for Middle & Near East & European languages
         return Box::new(CP437Decoder {});
     }
 
+    /// Generates an instance of a decoder from encoding name (e.g. `sjis` -> Shift-JIS)
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - encoding name
     pub fn from_encoding_name(name: &str) -> Option<Box<dyn IDecoder>> {
         if let Some(decoder) = encoding_rs::Encoding::for_label(name.as_bytes()) {
             return Some(Box::new(LegacyEncodingDecoder { decoder: decoder }));
@@ -160,6 +191,14 @@ impl dyn IDecoder {
     }
 }
 
+/// Guesses encoding from an array of sequences.
+/// Returns an index of the array `decoders` corresponding to the encoding that was able to decode all the `strings` without error.
+/// If no `decoders` can decode all of `strings` without error, returns `None`.
+///
+/// # Arguments
+///
+/// * `decoders` - encoding candidates.  The smaller the index, the higher the priority
+/// * `strings` - strings that an encoding must be able to decode all of them
 pub fn decide_decoeder(
     decoders: &Vec<&Box<dyn IDecoder>>,
     strings: &Vec<&Vec<u8>>,
