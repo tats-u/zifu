@@ -8,6 +8,24 @@ Have you ever received zip files from other OS users and when you decompressed t
 This tool checks if file names in zip archives can be decompressed without garbling on all operating systems and languages (i.e. explicitly encoded in UTF-8) and repairs them if not.
 # インストール / How to install
 
+## バイナリをダウンロード / Download a binary
+
+ここから最新版をダウンロードしてください。 / Download the latest version here.
+
+https://github.com/tats-u/zifu/releases
+
+## Cago
+
+次のコマンドを実行してください。 / Run the following command:
+
+```
+cargo install zifu
+```
+
+## 開発版 / Development version
+
+次のコマンドを実行してください。 / Run the following command:
+
 ```
 cargo install --git https://github.com/tats-u/zifu.git
 ```
