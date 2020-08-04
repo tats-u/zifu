@@ -14,7 +14,7 @@ This tool checks if file names in zip archives can be decompressed without garbl
 
 https://github.com/tats-u/zifu/releases
 
-## Cago
+## Cargo
 
 次のコマンドを実行してください。 / Run the following command:
 
@@ -54,7 +54,7 @@ zifu -l <ZIPファイルのパス>
 
 ```
 zifu -l -e cp437 <ZIPファイルのパス>
-``` 
+```
 
 また、非常にレアケースですが、Shift-JISではなく、UTF-8を優先して使用したい場合、`-u`オプションを利用します。
 
