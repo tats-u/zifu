@@ -5,7 +5,7 @@ mod zip_error;
 mod zip_local_file_header;
 use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
-use clap::{App, Arg};
+use clap::{crate_authors, crate_description, crate_version, App, Arg};
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use zip_central_directory::ZipCDEntry;
@@ -22,7 +22,10 @@ enum InvalidArgument {
 }
 
 fn main() -> anyhow::Result<()> {
-    let app = App::new("zfu")
+    let app = App::new("ZIP File Names to UTF-8 (ZIFU)")
+        .author(crate_authors!())
+        .version(crate_version!())
+        .about(crate_description!())
         .arg(
             Arg::with_name("input")
                 .about("Path to the ZIP file where you want to change the encoding of the file name to UTF-8")
