@@ -127,6 +127,15 @@ jobs:
         asset_name: ${{ steps.get_version.outputs.DEB_NAME }}
         # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
         asset_content_type: application/vnd.debian.binary-package
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/release
+          target/debug
+          target/.rustc_info.json
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
