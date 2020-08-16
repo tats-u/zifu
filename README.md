@@ -1,5 +1,9 @@
 # **ZI**P **F**ile Names to **U**TF-8 (ZIFU)
 
+![CI (master)](<https://github.com/tats-u/zifu/workflows/CI%20(master)/badge.svg>)
+![CI (Release)](<https://github.com/tats-u/zifu/workflows/CI%20(Release)/badge.svg>)
+[![zifu at crates.io](https://img.shields.io/crates/v/zifu.svg)](https://crates.io/crates/zifu)
+
 他のOSを使っている人からZIPファイルをもらったけど解凍したらファイル名の日本語が思いっきり文字化け、もしくは他のOSのユーザにZIPファイルを送ったら同じく日本語ファイル名が文字化けしてると言われた・・・そんな経験はありませんか？このツールでは、ZIPファイルのファイル名が全てのOS・言語で文字化けすることなく解凍できる (UTF-8で明示的にエンコードされている) かどうかをチェックし、必要に応じて修復します。
 
 Have you ever received zip files from other OS users and when you decompressed them, their non-English file name were completely garbled, or when you sent zip files to other OS users, you were told that non-English file names were garbled?
