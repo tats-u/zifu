@@ -1,7 +1,7 @@
 use ansi_term::Color::{Green, Red};
 use codepage_437::{FromCp437, CP437_CONTROL};
+use hfs_nfd::compose_from_hfs_nfd;
 use locale_config::Locale;
-use unicode_normalization::UnicodeNormalization;
 
 /// Trait (interface) of decoder
 pub trait IDecoder {
@@ -54,11 +54,11 @@ struct LegacyEncodingDecoder {
 impl IDecoder for UTF8NFCDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
         return String::from_utf8(input.to_vec())
-            .map(|s| s.nfc().collect::<String>())
+            .map(|s| compose_from_hfs_nfd(s))
             .ok();
     }
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
-        return String::from_utf8_lossy(&input).nfc().collect::<String>();
+        return compose_from_hfs_nfd(String::from_utf8_lossy(&input));
     }
     fn encoding_name(&self) -> &str {
         return "UTF-8";

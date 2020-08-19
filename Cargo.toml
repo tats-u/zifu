@@ -27,7 +27,7 @@ bytesize = "1.0.1"
 locale_config = "0.3.0"
 codepage-437 = "0.1.0"
 regex = "1"
-unicode-normalization = "0.1.13"
+hfs_nfd = "1"
 
 [package.metadata.deb]
 extended-description = """

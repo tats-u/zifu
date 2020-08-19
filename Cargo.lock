@@ -157,6 +157,12 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29fba9abe4742d586dfd0c06ae4f7e73a1c2d86b856933509b269d82cdf06e18"
+
+[[package]]
+name = "hashbrown"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34f595585f103464d8d2f6e9864682d74c1601fed5e07d62b1c9058dba8246fb"
@@ -183,13 +189,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "hfs_nfd"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b330a52e44b5243043c763a1bc32ed009825aa620a2adebe9ed8192f872582a0"
+dependencies = [
+ "hashbrown 0.3.1",
+ "lazy_static",
+ "thiserror",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b88cd59ee5f71fea89a62248fc8f387d44400cefe05ef548466d61ced9029a7"
 dependencies = [
  "autocfg",
- "hashbrown",
+ "hashbrown 0.8.1",
 ]
 
 [[package]]
@@ -432,21 +449,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinyvec"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "53953d2d3a5ad81d9f844a32f14ebb121f50b650cd59d0ee2a07cf13c617efed"
-
-[[package]]
-name = "unicode-normalization"
-version = "0.1.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fb19cf769fa8c6a80a162df694621ebeb4dafb606470b2b2fce0be40a98a977"
-dependencies = [
- "tinyvec",
-]
-
-[[package]]
 name = "unicode-segmentation"
 version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -518,8 +520,8 @@ dependencies = [
  "clap",
  "codepage-437",
  "encoding_rs",
+ "hfs_nfd",
  "locale_config",
  "regex",
  "thiserror",
- "unicode-normalization",
 ]
