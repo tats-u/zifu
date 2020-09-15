@@ -102,7 +102,16 @@ If you prefer UTF-8 than the encoding of your language, add `-u` option.  This i
 - 韓国語 / Korean (EUC-KR)
 - ベトナム語 / Vietnamese (Windows-1258)
 - タイ語 / Thai (Windows-874)
-- 英語 / English (CP437)
+- 英語 / English (CP437 / CP850)
+- 西ヨーロッパ言語 / Western Europe languages (CP850)
+- ギリシャ語 / Greek (CP737)
+- 中央ヨーロッパ言語 / Central Europe languages (CP852)
+- セルビア・ボスニア語 / Serbian & Bosnian (CP855)
+- トルコ語など / Turkish etc. (CP857)
+- ヘブライ語 / Hebrew (CP862)
+- ロシア語など / Russian etc. (CP866)
+
+アラビア文字を利用する言語 (CP720) は未対応です。 / Languages using Arabic letters (CP720) has not yet been supported.
 
 非対応の言語では、CP437が使用されます。 / CP437 will be used in unsupported languages.
 

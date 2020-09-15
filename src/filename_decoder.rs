@@ -1,5 +1,11 @@
 use ansi_term::Color::{Green, Red};
-use codepage_437::{FromCp437, CP437_CONTROL};
+use codepage::to_encoding;
+use lazy_static::lazy_static;
+use locale_name_code_page::get_codepage;
+use oem_cp::code_table::DECODING_TABLE_CP_MAP;
+use oem_cp::code_table_type::TableType;
+use regex::Regex;
+
 use hfs_nfd::compose_from_hfs_nfd;
 use locale_config::Locale;
 
@@ -27,8 +33,7 @@ pub trait IDecoder {
 
 /// UTF-8 decoder
 ///
-/// Also normalize NFD encoded names to NFC.
-/// FIXME: We must only convert characters designated in Apple's website: https://developer.apple.com/library/archive/technotes/tn/tn1150table.html
+/// Also normalize NFD (Apple's variant) encoded names to NFC.
 struct UTF8NFCDecoder {}
 
 /// ASCII decoder
@@ -36,12 +41,13 @@ struct UTF8NFCDecoder {}
 /// Allows only <= U+7F characters
 struct ASCIIDecoder {}
 
-/// CP437 decoder
+/// OEM code page decoder (other than Asian languages)
 ///
-/// OEM code page (used for ZIP file names) for English
-///
-/// Single byte & can decode all 256 code points
-struct CP437Decoder {}
+/// Single byte & use `oem_cp` to implement
+struct OEMCPDecoder {
+    decoder: &'static TableType,
+    encoding_str: String,
+}
 
 /// Asian ANSI+OEM codepages decoder
 ///
@@ -79,7 +85,7 @@ impl IDecoder for ASCIIDecoder {
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
         return input
             .iter()
-            .map(|c| if c.is_ascii() { *c as char } else { '?' })
+            .map(|c| if c.is_ascii() { *c as char } else { '\u{FFFD}' })
             .collect();
     }
     fn encoding_name(&self) -> &str {
@@ -90,15 +96,27 @@ impl IDecoder for ASCIIDecoder {
     }
 }
 
-impl IDecoder for CP437Decoder {
+impl OEMCPDecoder {
+    fn from_codepage(codepage: u16) -> Option<Self> {
+        return Some(Self {
+            decoder: DECODING_TABLE_CP_MAP.get(&codepage)?,
+            encoding_str: format!("CP{}", codepage),
+        });
+    }
+    fn fallback() -> Self {
+        return Self::from_codepage(437).unwrap();
+    }
+}
+
+impl IDecoder for OEMCPDecoder {
     fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
-        return Some(String::from_cp437(input.clone(), &CP437_CONTROL));
+        return self.decoder.decode_string_checked(input);
     }
     fn to_string_lossy(&self, input: &Vec<u8>) -> String {
-        return String::from_cp437(input.clone(), &CP437_CONTROL);
+        return self.decoder.decode_string_lossy(input);
     }
     fn encoding_name(&self) -> &str {
-        return "CP437";
+        return &self.encoding_str;
     }
     fn color(&self) -> ansi_term::Color {
         return Red;
@@ -136,40 +154,18 @@ impl dyn IDecoder {
 
     /// Returns native OEM code pages for the current locale
     ///
-    /// Supported: CJKV / Thai / CP437 (English)
+    /// Supported: CJKV / Thai / IBM OEM
     pub fn native_oem_encoding() -> Box<dyn IDecoder> {
         let current_locale_name_full = Locale::user_default().to_string();
-        let current_locale_name = &current_locale_name_full[0..5];
-        let current_language = &current_locale_name_full[0..2];
-        let encoding = match current_language {
-            "ja" => Some(encoding_rs::SHIFT_JIS),
-            "zh" => match current_locale_name {
-                "zh-CN" | "zh-SG" => Some(encoding_rs::GBK),
-                _ => Some(encoding_rs::BIG5),
-            },
-            "ko" => Some(encoding_rs::EUC_KR),
-            "th" => Some(encoding_rs::WINDOWS_874),
-            // "pl" | "cs" | "sk" | "hu" | "bs" | "hr" | "sr" | "ro" | "sq" => {
-            //     Some(encoding_rs::WINDOWS_1250)
-            // },
-            // "ru" | "bg" | "mk" => encoding_rs::WINDOWS_1251,
-            // 1252 => fallback
-            // "el" => encoding_rs::WINDOWS_1253,
-            // "tr" => encoding_rs::WINDOWS_1254,
-            // "he" => encoding_rs::WINDOWS_1255,
-            // "ar" => encoding_rs::WINDOWS_1256,
-            // "et" | "lv" | "lt" => encoding_rs::WINDOWS_1257,
-            "vi" => Some(encoding_rs::WINDOWS_1258),
-            _ => None,
-        };
-        if encoding.is_some() {
-            return Box::new(LegacyEncodingDecoder {
-                decoder: encoding.unwrap(),
-            });
+        if let Some(codepage) = get_codepage(current_locale_name_full) {
+            if let Some(encoding) = to_encoding(codepage.oem) {
+                return Box::new(LegacyEncodingDecoder { decoder: encoding });
+            }
+            if let Some(decoder) = OEMCPDecoder::from_codepage(codepage.oem) {
+                return Box::new(decoder);
+            }
         }
-        // FIXME: get OEM code page list for languages outside East & Southeast Asian languages
-        // FIXME: develop or seek for libraries for OEM code pages for Middle & Near East & European languages
-        return Box::new(CP437Decoder {});
+        return Box::new(OEMCPDecoder::fallback());
     }
 
     /// Generates an instance of a decoder from encoding name (e.g. `sjis` -> Shift-JIS)
@@ -178,14 +174,24 @@ impl dyn IDecoder {
     ///
     /// * `name` - encoding name
     pub fn from_encoding_name(name: &str) -> Option<Box<dyn IDecoder>> {
+        lazy_static! {
+            static ref OEM_CP_REGEX: Regex = Regex::new(r"(?i)(?:CP|OEM ?|IBM)(\d+)").unwrap();
+            static ref CP437_REGEX: Regex =
+                Regex::new("(?i)(OEM[-_]US|PC-8|DOS[-_ ]?Latin[-_ ]?US)").unwrap();
+        }
         if let Some(decoder) = encoding_rs::Encoding::for_label(name.as_bytes()) {
             return Some(Box::new(LegacyEncodingDecoder { decoder: decoder }));
         }
-        if regex::Regex::new("(?i)((CP|OEM ?)437|OEM[-_]US|PC-8|DOS[-_ ]?Latin[-_ ]?US)")
-            .map(|r| r.is_match(name))
-            .unwrap_or(false)
+        if let Some(decoder) = OEM_CP_REGEX
+            .captures(name)
+            .and_then(|captures| captures.get(1))
+            .and_then(|match_| -> Option<u16> { match_.as_str().parse().ok() })
+            .and_then(|codepage| OEMCPDecoder::from_codepage(codepage))
         {
-            return Some(Box::new(CP437Decoder {}));
+            return Some(Box::new(decoder));
+        }
+        if CP437_REGEX.is_match(name) {
+            return Some(Box::new(OEMCPDecoder::fallback()));
         }
         return None;
     }

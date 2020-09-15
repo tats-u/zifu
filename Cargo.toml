@@ -1,6 +1,6 @@
 [package]
 name = "zifu"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
 license = "MIT"
@@ -25,9 +25,12 @@ thiserror = "1.0.20"
 encoding_rs = "0.8.23"
 bytesize = "1.0.1"
 locale_config = "0.3.0"
-codepage-437 = "0.1.0"
+codepage = "0.1.1"
 regex = "1"
 hfs_nfd = "1"
+oem_cp = "0"
+locale_name_code_page = "<2"
+lazy_static = "1.4.0"
 
 [package.metadata.deb]
 extended-description = """
