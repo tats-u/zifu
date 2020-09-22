@@ -110,8 +110,7 @@ If you prefer UTF-8 than the encoding of your language, add `-u` option.  This i
 - トルコ語など / Turkish etc. (CP857)
 - ヘブライ語 / Hebrew (CP862)
 - ロシア語など / Russian etc. (CP866)
-
-アラビア文字を利用する言語 (CP720) は未対応です。 / Languages using Arabic letters (CP720) has not yet been supported.
+- アラビア語 / Arabic (CP720)
 
 非対応の言語では、CP437が使用されます。 / CP437 will be used in unsupported languages.
 
