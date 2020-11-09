@@ -5,7 +5,9 @@ mod zip_error;
 mod zip_local_file_header;
 use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 use clap::{crate_authors, crate_description, crate_version, App, Arg};
+use filename_decoder::IDecoder;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use zip_central_directory::ZipCDEntry;
@@ -19,6 +21,132 @@ enum InvalidArgument {
     InvalidEncodingName { encoding_name: String },
     #[error("you cannot specify the same file for input and output files.")]
     SameInputOutput,
+}
+
+fn check_archive(eocd: &ZipEOCD, cd_entries: &Vec<ZipCDEntry>) -> anyhow::Result<bool> {
+    let utf8_entries_count = cd_entries
+        .iter()
+        .filter(|&cd| cd.is_encoded_in_utf8())
+        .count();
+    if utf8_entries_count == eocd.n_cd_entries as usize {
+        println!(
+            "{}",
+            Green
+                .bold()
+                .paint("All file names are explicitly encoded in UTF-8.")
+        );
+        return Ok(true);
+    }
+    let ascii_decoder = filename_decoder::IDecoder::ascii();
+    if filename_decoder::decide_decoeder(
+        &vec![&ascii_decoder],
+        &cd_entries
+            .iter()
+            .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
+            .collect(),
+    )
+    .is_some()
+    {
+        println!(
+                "{}  {}",
+                Yellow.bold().paint(
+                    if utf8_entries_count > 0 {
+                        format!(
+                            "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
+                            utf8_entries_count,
+                            eocd.n_cd_entries as usize - utf8_entries_count,
+                        )
+                    } else {
+                        "All file names are implicitly encoded in ASCII.".to_string()
+                    }),
+                Green.bold().paint("They can be extracted correctly in all environments without garbling.")
+            );
+        return Ok(true);
+    }
+    if utf8_entries_count > 0 {
+        println!(
+            "{}",
+            Red.bold().paint(format!(
+                "Some file names are not explicitly encoded in UTF-8. ({} / {})",
+                eocd.n_cd_entries as usize - utf8_entries_count,
+                eocd.n_cd_entries
+            ))
+        );
+        return Ok(false);
+    }
+    println!(
+        "{}",
+        Red.bold()
+            .paint("All file names are not explicitly encoded in UTF-8.")
+    );
+    return Ok(false);
+}
+
+fn list_names_in_archive(
+    cd_entries: &Vec<ZipCDEntry>,
+    utf8_decoder: &dyn IDecoder,
+    legacy_decoder: &dyn IDecoder,
+) {
+    for cd in cd_entries {
+        if cd.is_encoded_in_utf8() {
+            println!(
+                "{}:{}:{}",
+                Green.bold().paint("EXPLICIT"),
+                Green.bold().paint("UTF-8"),
+                utf8_decoder.to_string_lossy(&cd.file_name_raw)
+            );
+        } else {
+            println!(
+                "{}:{}:{}",
+                Red.bold().paint("GUESSED"),
+                legacy_decoder
+                    .color()
+                    .bold()
+                    .paint(legacy_decoder.encoding_name()),
+                legacy_decoder.to_string_lossy(&cd.file_name_raw)
+            );
+        }
+    }
+}
+
+fn output_zip_archive<R: ReadBytesExt + std::io::Seek, W: WriteBytesExt>(
+    zip_file: &mut R,
+    eocd: &mut ZipEOCD,
+    cd_entries: &mut Vec<ZipCDEntry>,
+    decoder: &dyn IDecoder,
+    output_zip_file: &mut W,
+) -> anyhow::Result<()> {
+    // Writer can't get the current position, so we must record it by ourselves.
+    let mut pos: u64 = 0;
+    // Local header (including contents)
+    for cd in cd_entries.iter_mut() {
+        let mut local_header =
+            zip_local_file_header::ZipLocalFileHeader::from_central_directory(zip_file, cd)?;
+        if !cd.is_encoded_in_utf8() {
+            let file_name_u8 = decoder.to_string_lossy(&cd.file_name_raw);
+            let file_name_u8bytes = file_name_u8.as_bytes().to_vec();
+
+            cd.set_file_name_from_slice(&file_name_u8bytes);
+            local_header.set_file_name_from_slice(&file_name_u8bytes);
+            let file_comment_u8 = decoder.to_string_lossy(&cd.file_comment);
+            let file_comment_u8bytes = file_comment_u8.as_bytes().to_vec();
+            cd.set_file_coment_from_slice(&file_comment_u8bytes);
+            cd.set_utf8_encoded_flag();
+            local_header.set_utf8_encoded_flag();
+        }
+        cd.local_header_position = pos as u32;
+        pos += local_header.write(output_zip_file)?;
+    }
+    // Central directory
+    eocd.cd_starting_position = pos as u32;
+    let mut cd_new_size: u64 = 0;
+    for cd in cd_entries.iter_mut() {
+        cd_new_size += cd.write(output_zip_file)?;
+    }
+    // EOCD
+    eocd.cd_size = cd_new_size as u32;
+    eocd.write(output_zip_file)?;
+    return Ok(());
 }
 
 fn main() -> anyhow::Result<()> {
@@ -78,62 +206,8 @@ fn main() -> anyhow::Result<()> {
     let mut cd_entries = ZipCDEntry::all_from_eocd(&mut zip_file, &eocd)?;
 
     if matches.is_present("check") {
-        let utf8_entries_count = cd_entries
-            .iter()
-            .filter(|&cd| cd.is_encoded_in_utf8())
-            .count();
-        if utf8_entries_count == eocd.n_cd_entries as usize {
-            println!(
-                "{}",
-                Green
-                    .bold()
-                    .paint("All file names are explicitly encoded in UTF-8.")
-            );
-            return Ok(());
-        }
-        let ascii_decoder = filename_decoder::IDecoder::ascii();
-        if filename_decoder::decide_decoeder(
-            &vec![&ascii_decoder],
-            &cd_entries
-                .iter()
-                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
-                .collect(),
-        )
-        .is_some()
-        {
-            println!(
-                "{}  {}",
-                Yellow.bold().paint(
-                    if utf8_entries_count > 0 {
-                        format!(
-                            "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
-                            utf8_entries_count,
-                            eocd.n_cd_entries as usize - utf8_entries_count,
-                        )
-                    } else {
-                        "All file names are implicitly encoded in ASCII.".to_string()
-                    }),
-                Green.bold().paint("They can be extracted correctly in all environments without garbling.")
-            );
-            return Ok(());
-        }
-        if utf8_entries_count > 0 {
-            println!(
-                "{}",
-                Red.bold().paint(format!(
-                    "Some file names are not explicitly encoded in UTF-8. ({} / {})",
-                    eocd.n_cd_entries as usize - utf8_entries_count,
-                    eocd.n_cd_entries
-                ))
-            );
-            std::process::exit(1);
-        }
-        println!(
-            "{}",
-            Red.bold()
-                .paint("All file names are not explicitly encoded in UTF-8.")
-        );
-        std::process::exit(1);
+        let is_arhive_safe = check_archive(&eocd, &cd_entries)?;
+        std::process::exit(if is_arhive_safe { 0 } else { 2 });
     }
 
     let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
@@ -167,26 +241,7 @@ fn main() -> anyhow::Result<()> {
     let guessed_encoder = decoders_list[best_fit_decoder_index_.unwrap()];
 
     if matches.is_present("list") {
-        for cd in cd_entries {
-            if cd.is_encoded_in_utf8() {
-                println!(
-                    "{}:{}:{}",
-                    Green.bold().paint("EXPLICIT"),
-                    Green.bold().paint("UTF-8"),
-                    utf8_decoder.to_string_lossy(&cd.file_name_raw)
-                );
-            } else {
-                println!(
-                    "{}:{}:{}",
-                    Red.bold().paint("GUESSED"),
-                    guessed_encoder
-                        .color()
-                        .bold()
-                        .paint(guessed_encoder.encoding_name()),
-                    guessed_encoder.to_string_lossy(&cd.file_name_raw)
-                );
-            }
-        }
+        list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
     } else {
         let output_zip_file_str =
             matches
@@ -203,39 +258,13 @@ fn main() -> anyhow::Result<()> {
         }
 
         let mut output_zip_file = BufWriter::new(File::create(output_zip_file_str)?);
-        // Writer can't get the current position, so we must record it by ourselves.
-        let mut pos: u64 = 0;
-        // Local header (including contents)
-        for cd in &mut cd_entries {
-            let mut local_header =
-                zip_local_file_header::ZipLocalFileHeader::from_central_directory(
-                    &mut zip_file,
-                    cd,
-                )?;
-            if !cd.is_encoded_in_utf8() {
-                let file_name_u8 = guessed_encoder.to_string_lossy(&cd.file_name_raw);
-                let file_name_u8bytes = file_name_u8.as_bytes().to_vec();
-
-                cd.set_file_name_from_slice(&file_name_u8bytes);
-                local_header.set_file_name_from_slice(&file_name_u8bytes);
-                let file_comment_u8 = guessed_encoder.to_string_lossy(&cd.file_comment);
-                let file_comment_u8bytes = file_comment_u8.as_bytes().to_vec();
-                cd.set_file_coment_from_slice(&file_comment_u8bytes);
-                cd.set_utf8_encoded_flag();
-                local_header.set_utf8_encoded_flag();
-            }
-            cd.local_header_position = pos as u32;
-            pos += local_header.write(&mut output_zip_file)?;
-        }
-        // Central directory
-        eocd.cd_starting_position = pos as u32;
-        let mut cd_new_size: u64 = 0;
-        for cd in cd_entries {
-            cd_new_size += cd.write(&mut output_zip_file)?;
-        }
-        // EOCD
-        eocd.cd_size = cd_new_size as u32;
-        eocd.write(&mut output_zip_file)?;
+        output_zip_archive(
+            &mut zip_file,
+            &mut eocd,
+            &mut cd_entries,
+            &**guessed_encoder,
+            &mut output_zip_file,
+        )?;
     }
     return Ok(());
 }
