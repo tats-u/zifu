@@ -1,6 +1,7 @@
 use super::zip_central_directory::{ZipCDEntry, DATA_DESCRIPTOR_EXISTS_FLAG_BIT, UTF8_FLAG_BIT};
 use super::zip_error::ZipReadError;
 use byteorder::{ReadBytesExt, WriteBytesExt, LE};
+use std::borrow::Cow;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 
@@ -45,7 +46,7 @@ impl ZipDataDescriptor {
 }
 
 /// An entry of local header of ZIP file
-pub struct ZipLocalFileHeader {
+pub struct ZipLocalFileHeader<'a> {
     /// As the name implies; see 4.4.3 in https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
     ///
     /// Unaffected by file renaming
@@ -89,7 +90,7 @@ pub struct ZipLocalFileHeader {
     /// Byte sequence of extra field
     pub extra_field: Vec<u8>,
     /// File content
-    pub compressed_data: Vec<u8>,
+    pub compressed_data: Cow<'a, [u8]>,
     /// Data descriptor just after the file content (exists only when bit #3 of general purpose flag is set)
     pub data_descriptor: Option<ZipDataDescriptor>,
     // ローカルファイルヘッダのエントリここまで / End of local file header entries
@@ -101,7 +102,7 @@ pub struct ZipLocalFileHeader {
     pub starting_position_without_signature: u64,
 }
 
-impl ZipLocalFileHeader {
+impl ZipLocalFileHeader<'_> {
     ///空のローカルファイルヘッダオブジェクトを生成 /
     /// Generates an empty local file header object
     fn empty() -> Self {
@@ -118,7 +119,7 @@ impl ZipLocalFileHeader {
             extra_field_length: 0,
             file_name_raw: vec![],
             extra_field: vec![],
-            compressed_data: vec![],
+            compressed_data: Default::default(),
             data_descriptor: None,
             starting_position_with_signature: 0,
             starting_position_without_signature: 0,
@@ -168,9 +169,10 @@ impl ZipLocalFileHeader {
                 ),
             });
         }
+        let mut data_buf: Vec<u8> = Default::default();
         let read_compressed_size = read
             .take(self.compressed_size as u64)
-            .read_to_end(&mut self.compressed_data)?;
+            .read_to_end(&mut data_buf)?;
         if read_compressed_size != self.compressed_size as usize {
             return Err(ZipReadError::InvalidZipArchive {
                 reason: format!(
@@ -179,6 +181,7 @@ impl ZipLocalFileHeader {
                 ),
             });
         }
+        self.compressed_data = data_buf.into();
         if self.has_data_descriptor_by_flag() {
             self.data_descriptor = Some(ZipDataDescriptor::from_reader(read)?);
         }
@@ -256,9 +259,9 @@ impl ZipLocalFileHeader {
         write.write_u32::<LE>(self.uncompressed_size)?;
         write.write_u16::<LE>(self.file_name_length)?;
         write.write_u16::<LE>(self.extra_field_length)?;
-        write.write_all(self.file_name_raw.as_slice())?;
-        write.write_all(self.extra_field.as_slice())?;
-        write.write_all(self.compressed_data.as_slice())?;
+        write.write_all(&self.file_name_raw)?;
+        write.write_all(&self.extra_field)?;
+        write.write_all(&self.compressed_data)?;
         if self.data_descriptor.is_some() {
             bytes_written += self.data_descriptor.as_ref().unwrap().write(write)?;
         }
