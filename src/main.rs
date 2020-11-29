@@ -149,6 +149,23 @@ fn output_zip_archive<R: ReadBytesExt + std::io::Seek, W: WriteBytesExt>(
     return Ok(());
 }
 
+/// Returns `Ok(false)` if a line starting with `'n'` (or `'N'`) is input from stdin, otherwise `Ok(true)`.
+///
+/// Returns `Err(std::io::Error)` if I/O fails.
+fn ask_default_yes() -> Result<bool, std::io::Error> {
+    let ask_result = (|| {
+        let mut ret = String::new();
+        match std::io::stdin().read_line(&mut ret) {
+            Ok(_) => return Ok(ret),
+            Err(e) => return Err(e),
+        }
+    })()?;
+    return Ok(match ask_result.chars().next() {
+        None | Some('n') | Some('N') => false,
+        Some(_) => true,
+    });
+}
+
 fn main() -> anyhow::Result<()> {
     let app = App::new("ZIP File Names to UTF-8 (ZIFU)")
         .author(crate_authors!())
@@ -176,6 +193,18 @@ fn main() -> anyhow::Result<()> {
                 .about("Displays the list of file names in the ZIP archive.")
         )
         .arg(
+            Arg::new("silent")
+            .short('s')
+            .long("slient")
+            .about("Don't show any messages. (implies -y)")
+        )
+        .arg(
+            Arg::new("quiet")
+            .short('q')
+            .long("quiet")
+            .about("Don't show any messages. (implies -y")
+        )
+        .arg(
             Arg::new("encoding")
             .long("encoding")
             .short('e')
@@ -187,9 +216,17 @@ fn main() -> anyhow::Result<()> {
                 .long("utf8")
                 .short('u')
                 .about("Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)")
+        )
+        .arg(
+            Arg::new("yes")
+            .long("yes")
+            .short('y')
+            .about("Don't confirm")
         );
 
     let matches = app.get_matches();
+    let verbose = !matches.is_present("silent") && !matches.is_present("quiet");
+    let ask_user = verbose && !matches.is_present("yes");
     let mut zip_file = match matches.value_of("input") {
         None => {
             return Err(InvalidArgument::NoArgument {
@@ -242,29 +279,37 @@ fn main() -> anyhow::Result<()> {
 
     if matches.is_present("list") {
         list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
-    } else {
-        let output_zip_file_str =
-            matches
-                .value_of("output")
-                .ok_or(InvalidArgument::NoArgument {
-                    arg_name: "output".to_string(),
-                })?;
-        if matches
-            .value_of("input")
-            .and_then(|input| Some(input == output_zip_file_str))
-            .unwrap_or(false)
-        {
-            return Err(InvalidArgument::SameInputOutput.into());
-        }
-
-        let mut output_zip_file = BufWriter::new(File::create(output_zip_file_str)?);
-        output_zip_archive(
-            &mut zip_file,
-            &mut eocd,
-            &mut cd_entries,
-            &**guessed_encoder,
-            &mut output_zip_file,
-        )?;
+        return Ok(());
     }
+    if verbose || ask_user {
+        list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
+        if ask_user {
+            eprint!("Are these file names correct? [Y/n]: ");
+            if !(ask_default_yes()?) {
+                std::process::exit(1);
+            }
+        }
+    }
+    let output_zip_file_str = matches
+        .value_of("output")
+        .ok_or(InvalidArgument::NoArgument {
+            arg_name: "output".to_string(),
+        })?;
+    if matches
+        .value_of("input")
+        .and_then(|input| Some(input == output_zip_file_str))
+        .unwrap_or(false)
+    {
+        return Err(InvalidArgument::SameInputOutput.into());
+    }
+
+    let mut output_zip_file = BufWriter::new(File::create(output_zip_file_str)?);
+    output_zip_archive(
+        &mut zip_file,
+        &mut eocd,
+        &mut cd_entries,
+        &**guessed_encoder,
+        &mut output_zip_file,
+    )?;
     return Ok(());
 }
