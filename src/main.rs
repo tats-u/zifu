@@ -23,7 +23,13 @@ enum InvalidArgument {
     SameInputOutput,
 }
 
-fn check_archive(eocd: &ZipEOCD, cd_entries: &Vec<ZipCDEntry>) -> anyhow::Result<bool> {
+/// Returns `Ok(true)` when the archive can be processed by this tool, `Ok(false)` when can't, `Err(...)` (anyhow's) when an error occurs in validation
+///
+/// # Arguments
+///
+/// * `eocd` - EOCD
+/// * `cd_entries` - Central directories
+fn check_archive(eocd: &ZipEOCD, cd_entries: &[ZipCDEntry]) -> anyhow::Result<bool> {
     let utf8_entries_count = cd_entries
         .iter()
         .filter(|&cd| cd.is_encoded_in_utf8())
@@ -82,8 +88,15 @@ fn check_archive(eocd: &ZipEOCD, cd_entries: &Vec<ZipCDEntry>) -> anyhow::Result
     return Ok(false);
 }
 
+/// Decodes and prints file names in central directories to stdout
+///
+/// # Arguments
+///
+/// * `cd_entries` - Central directories (contains file names)
+/// * `utf8_decoder` - UTF-8 decoder (used when explicitly encoded in UTF-8)
+/// * `legacy_decoder` - Legacy charset decoder (used otherwise)
 fn list_names_in_archive(
-    cd_entries: &Vec<ZipCDEntry>,
+    cd_entries: &[ZipCDEntry],
     utf8_decoder: &dyn IDecoder,
     legacy_decoder: &dyn IDecoder,
 ) {
@@ -109,6 +122,18 @@ fn list_names_in_archive(
     }
 }
 
+/// Generates ZIP archive
+///
+/// Fixes position and size entries in EOCD at the same time
+///
+/// # Arguments
+///
+/// * `zip_file` - File object for input ZIP file
+/// * `eocd` - EOCD struct
+/// * `cd_entries` - Vector of central directories
+/// * `decoder` - ASCII-compatible character set for converting file names encoded in it to UTF-8
+/// * `output_sip_file` - File object for output ZIP file
+// TODO: Split processes into fixing encoding & outputting ZIP file
 fn output_zip_archive<R: ReadBytesExt + std::io::Seek, W: WriteBytesExt>(
     zip_file: &mut R,
     eocd: &mut ZipEOCD,
