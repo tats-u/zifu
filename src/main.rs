@@ -227,7 +227,7 @@ fn main() -> anyhow::Result<()> {
             Arg::new("quiet")
             .short('q')
             .long("quiet")
-            .about("Don't show any messages. (implies -y")
+            .about("Don't show any messages. (implies -y)")
         )
         .arg(
             Arg::new("encoding")
