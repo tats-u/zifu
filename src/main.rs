@@ -23,6 +23,13 @@ enum InvalidArgument {
     SameInputOutput,
 }
 
+/// Global behavior options for this program
+#[derive(Debug, Clone, Copy, Default)]
+struct GlobalFlags {
+    verbose: bool,
+    ask_user: bool,
+}
+
 /// Returns `Ok(true)` when the archive can be processed by this tool, `Ok(false)` when can't, `Err(...)` (anyhow's) when an error occurs in validation
 ///
 /// # Arguments
@@ -254,8 +261,11 @@ fn main() -> anyhow::Result<()> {
         );
 
     let matches = app.get_matches();
-    let verbose = !matches.is_present("silent") && !matches.is_present("quiet");
-    let ask_user = verbose && !matches.is_present("yes");
+    let global_flags = (|| {
+        let verbose = !matches.is_present("silent") && !matches.is_present("quiet");
+        let ask_user = verbose && !matches.is_present("yes");
+        return GlobalFlags { verbose, ask_user };
+    })();
     let mut zip_file = match matches.value_of("input") {
         None => {
             return Err(InvalidArgument::NoArgument {
@@ -310,9 +320,9 @@ fn main() -> anyhow::Result<()> {
         list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
         return Ok(());
     }
-    if verbose || ask_user {
+    if global_flags.verbose || global_flags.ask_user {
         list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
-        if ask_user {
+        if global_flags.ask_user {
             eprint!("Are these file names correct? [Y/n]: ");
             if !(ask_default_yes()?) {
                 std::process::exit(1);
