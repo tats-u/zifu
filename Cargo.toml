@@ -1,6 +1,6 @@
 [package]
 name = "zifu"
-version = "0.2.1"
+version = "0.3.0"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
 license = "MIT"
@@ -9,6 +9,13 @@ repository = "https://github.com/tats-u/zifu/"
 description = "Repair corrupted file names in ZIP archives"
 categories = ["command-line-utilities"]
 keywords = ["zip", "archive", "utf-8", "encoding"]
+
+[package.metadata.deb]
+extended-description = """
+zifu is a command line tool to fix Windows-dependent encoded filenames of ZIP files.
+
+In general, only ASCII characters are allowed for file names in a ZIP archive. However, uninformed non-English Windows users may include files with names in their native languages. Unfortunately, the ZIP archiver in Windows implicitly encodes the file names in encodings other than UTF-8, so they are garbled when unzipped under Linux.
+This tool automatically detects the encoding of the files in the ZIP archive and explicitly re-encodes them as UTF-8, so that you can unzip them without any garbled characters even with the ZIP archiver bundled in Linux."""
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -27,10 +34,3 @@ hfs_nfd = "1"
 oem_cp = "0"
 locale_name_code_page = "<2"
 lazy_static = "1.4.0"
-
-[package.metadata.deb]
-extended-description = """
-zifu is a command line tool to fix Windows-dependent encoded filenames of ZIP files.
-
-In general, only ASCII characters are allowed for file names in a ZIP archive. However, uninformed non-English Windows users may include files with names in their native languages. Unfortunately, the ZIP archiver in Windows implicitly encodes the file names in encodings other than UTF-8, so they are garbled when unzipped under Linux.
-This tool automatically detects the encoding of the files in the ZIP archive and explicitly re-encodes them as UTF-8, so that you can unzip them without any garbled characters even with the ZIP archiver bundled in Linux."""
