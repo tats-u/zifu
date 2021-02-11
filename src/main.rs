@@ -174,6 +174,13 @@ fn output_zip_archive<R: ReadBytesExt + std::io::Seek, W: WriteBytesExt>(
     return Ok(());
 }
 
+fn process_answer_default_yes(ans: &str) -> bool {
+    return match ans.chars().next() {
+        Some('n') | Some('N') => false,
+        None | Some(_) => true,
+    };
+}
+
 /// Returns `Ok(false)` if a line starting with `'n'` (or `'N'`) is input from stdin, otherwise `Ok(true)`.
 ///
 /// Returns `Err(std::io::Error)` if I/O fails.
@@ -185,10 +192,7 @@ fn ask_default_yes() -> Result<bool, std::io::Error> {
             Err(e) => return Err(e),
         }
     })()?;
-    return Ok(match ask_result.chars().next() {
-        None | Some('n') | Some('N') => false,
-        Some(_) => true,
-    });
+    return Ok(process_answer_default_yes(&ask_result));
 }
 
 fn main() -> anyhow::Result<()> {
