@@ -10,10 +10,6 @@ description = "Repair corrupted file names in ZIP archives"
 categories = ["command-line-utilities"]
 keywords = ["zip", "archive", "utf-8", "encoding"]
 
-[[bin]]
-name = "zifu"
-path = "src/main.rs"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
