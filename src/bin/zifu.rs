@@ -1,7 +1,7 @@
 use zifu::filename_decoder;
-use zifu::zip_central_directory;
-use zifu::zip_eocd;
-use zifu::zip_local_file_header;
+use zip_structs::zip_central_directory;
+use zip_structs::zip_eocd;
+use zip_structs::zip_local_file_header;
 use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
 use byteorder::{ReadBytesExt, WriteBytesExt};
