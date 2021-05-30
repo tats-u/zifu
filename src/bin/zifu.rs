@@ -1,16 +1,16 @@
-use zifu::filename_decoder;
-use zip_structs::zip_central_directory;
-use zip_structs::zip_eocd;
-use zip_structs::zip_local_file_header;
 use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use clap::{crate_authors, crate_description, crate_version, App, Arg};
+use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use filename_decoder::IDecoder;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
+use zifu::filename_decoder;
 use zip_central_directory::ZipCDEntry;
 use zip_eocd::ZipEOCD;
+use zip_structs::zip_central_directory;
+use zip_structs::zip_eocd;
+use zip_structs::zip_local_file_header;
 
 #[derive(thiserror::Error, Debug)]
 enum InvalidArgument {
@@ -201,70 +201,76 @@ fn ask_default_yes() -> Result<bool, std::io::Error> {
     return Ok(process_answer_default_yes(&ask_result));
 }
 
+fn get_arg_parser() -> App<'static> {
+    return App::new("ZIP File Names to UTF-8 (ZIFU)")
+    .author(crate_authors!())
+    .version(crate_version!())
+    .about(crate_description!())
+    .arg(
+        Arg::new("input")
+            .about("Path to the ZIP file where you want to change the encoding of the file name to UTF-8")
+            .required(true)
+        )
+    .arg(
+        Arg::new("output")
+            .about("Path to output")
+    )
+    .arg(
+        Arg::new("check")
+            .long("check")
+            .short('c')
+            .about("Finds out if its file names are encoded in UTF-8.")
+    )
+    .arg(
+        Arg::new("list")
+            .short('l')
+            .long("list")
+            .about("Displays the list of file names in the ZIP archive.")
+    )
+    .arg(
+        Arg::new("silent")
+        .short('s')
+        .long("slient")
+        .about("Don't show any messages. (implies -y)")
+    )
+    .arg(
+        Arg::new("quiet")
+        .short('q')
+        .long("quiet")
+        .about("Don't show any messages. (implies -y)")
+    )
+    .arg(
+        Arg::new("encoding")
+        .long("encoding")
+        .short('e')
+        .value_name("ENCODING")
+        .about("Specifies the encoding of file names in the ZIP archive.")
+    )
+    .arg(
+        Arg::new("utf-8")
+            .long("utf8")
+            .short('u')
+            .about("Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)")
+    )
+    .arg(
+        Arg::new("yes")
+        .long("yes")
+        .short('y')
+        .about("Don't confirm")
+    );
+}
+
+fn matches_to_global_flags(matches: &ArgMatches) -> GlobalFlags {
+    let verbose = !matches.is_present("silent") && !matches.is_present("quiet");
+    let ask_user = verbose && !matches.is_present("yes");
+    return GlobalFlags { verbose, ask_user };
+}
+
 fn main() -> anyhow::Result<()> {
-    let app = App::new("ZIP File Names to UTF-8 (ZIFU)")
-        .author(crate_authors!())
-        .version(crate_version!())
-        .about(crate_description!())
-        .arg(
-            Arg::new("input")
-                .about("Path to the ZIP file where you want to change the encoding of the file name to UTF-8")
-                .required(true)
-            )
-        .arg(
-            Arg::new("output")
-                .about("Path to output")
-        )
-        .arg(
-            Arg::new("check")
-                .long("check")
-                .short('c')
-                .about("Finds out if its file names are encoded in UTF-8.")
-        )
-        .arg(
-            Arg::new("list")
-                .short('l')
-                .long("list")
-                .about("Displays the list of file names in the ZIP archive.")
-        )
-        .arg(
-            Arg::new("silent")
-            .short('s')
-            .long("slient")
-            .about("Don't show any messages. (implies -y)")
-        )
-        .arg(
-            Arg::new("quiet")
-            .short('q')
-            .long("quiet")
-            .about("Don't show any messages. (implies -y)")
-        )
-        .arg(
-            Arg::new("encoding")
-            .long("encoding")
-            .short('e')
-            .value_name("ENCODING")
-            .about("Specifies the encoding of file names in the ZIP archive.")
-        )
-        .arg(
-            Arg::new("utf-8")
-                .long("utf8")
-                .short('u')
-                .about("Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)")
-        )
-        .arg(
-            Arg::new("yes")
-            .long("yes")
-            .short('y')
-            .about("Don't confirm")
-        );
+    let app = get_arg_parser();
 
     let matches = app.get_matches();
-    let global_flags = (|| {
-        let verbose = !matches.is_present("silent") && !matches.is_present("quiet");
-        let ask_user = verbose && !matches.is_present("yes");
-        return GlobalFlags { verbose, ask_user };
-    })();
+    let global_flags = matches_to_global_flags(&matches);
     let mut zip_file = match matches.value_of("input") {
         None => {
             return Err(InvalidArgument::NoArgument {
