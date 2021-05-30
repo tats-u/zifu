@@ -357,3 +357,88 @@ fn main() -> anyhow::Result<()> {
     )?;
     return Ok(());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn basic_args_parse_test() {
+        let app = get_arg_parser();
+        let matches = app.get_matches_from(vec!["zifu", "before.zip", "after.zip"]);
+        let global_flags = matches_to_global_flags(&matches);
+
+        assert_eq!(global_flags.ask_user, true);
+        assert_eq!(global_flags.verbose, true);
+
+        assert_eq!(matches.value_of("input"), Some("before.zip"));
+        assert_eq!(matches.value_of("output"), Some("after.zip"));
+    }
+
+    #[test]
+    fn extended_args_parse_test1() {
+        let app = get_arg_parser();
+        let matches =
+            app.get_matches_from(vec!["zifu", "before.zip", "after.zip", "-q", "-u", "-l"]);
+        let global_flags = matches_to_global_flags(&matches);
+
+        assert_eq!(global_flags.ask_user, false);
+        assert_eq!(global_flags.verbose, false);
+
+        assert_eq!(matches.value_of("input"), Some("before.zip"));
+        assert_eq!(matches.value_of("output"), Some("after.zip"));
+        assert_eq!(matches.value_of("encoding"), None);
+        assert_eq!(matches.is_present("utf-8"), true);
+        assert_eq!(matches.is_present("check"), false);
+        assert_eq!(matches.is_present("list"), true);
+    }
+
+    #[test]
+    fn extended_args_parse_test2() {
+        let app = get_arg_parser();
+        let matches = app.get_matches_from(vec![
+            "zifu",
+            "before.zip",
+            "after.zip",
+            "-s",
+            "-e",
+            "sjis",
+            "-c",
+        ]);
+        let global_flags = matches_to_global_flags(&matches);
+
+        assert_eq!(global_flags.ask_user, false);
+        assert_eq!(global_flags.verbose, false);
+
+        assert_eq!(matches.value_of("input"), Some("before.zip"));
+        assert_eq!(matches.value_of("output"), Some("after.zip"));
+        assert_eq!(matches.value_of("encoding"), Some("sjis"));
+        assert_eq!(matches.is_present("utf-8"), false);
+        assert_eq!(matches.is_present("check"), true);
+        assert_eq!(matches.is_present("list"), false);
+    }
+
+    #[test]
+    fn extended_args_parse_test3() {
+        let app = get_arg_parser();
+        let matches = app.get_matches_from(vec![
+            "zifu",
+            "before.zip",
+            "after.zip",
+            "-y",
+            "--encoding",
+            "cp437",
+        ]);
+        let global_flags = matches_to_global_flags(&matches);
+
+        assert_eq!(global_flags.ask_user, false);
+        assert_eq!(global_flags.verbose, true);
+
+        assert_eq!(matches.value_of("input"), Some("before.zip"));
+        assert_eq!(matches.value_of("output"), Some("after.zip"));
+        assert_eq!(matches.value_of("encoding"), Some("cp437"));
+        assert_eq!(matches.is_present("utf-8"), false);
+        assert_eq!(matches.is_present("check"), false);
+        assert_eq!(matches.is_present("list"), false);
+    }
+}
