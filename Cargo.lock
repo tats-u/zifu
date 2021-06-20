@@ -10,6 +10,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahash"
+version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43bb833f0bf979d8475d38fbf09ed3b8a55e1885fe93ad3f93239fc6a4f17b98"
+dependencies = [
+ "getrandom",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -199,7 +210,7 @@ version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cc4ab9c60b03b98d92ead6745c4db73a754e0f94341954b254301aeaab6525bf"
 dependencies = [
- "ahash",
+ "ahash 0.4.7",
  "lazy_static",
  "thiserror",
 ]
@@ -245,7 +256,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a846c4945fff1fed26015d882a6a782b70fd320c7c735e0754701c5bc0bf6aa5"
 dependencies = [
- "ahash",
+ "ahash 0.4.7",
  "lazy_static",
  "regex",
 ]
@@ -296,13 +307,19 @@ dependencies = [
 
 [[package]]
 name = "oem_cp"
-version = "0.2.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d450410142064c73ff7817d5613b236d55bc66b282a2015add6b7774af7d334"
+checksum = "56428601ad4b928c5b705e89eb2db6ae070de7bad96f0e1c2ae07288fdfff082"
 dependencies = [
- "ahash",
+ "ahash 0.7.4",
  "lazy_static",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
 
 [[package]]
 name = "os_str_bytes"
