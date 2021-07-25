@@ -3,6 +3,7 @@ use anyhow::anyhow;
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
 use filename_decoder::IDecoder;
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use zifu::filename_decoder;
@@ -29,25 +30,107 @@ struct GlobalFlags {
     ask_user: bool,
 }
 
-/// Returns `Ok(true)` when the archive can be processed by this tool, `Ok(false)` when can't, `Err(...)` (anyhow's) when an error occurs in validation
+/// Enum that
+#[derive(Debug)]
+enum ZipFileEncodingType {
+    /// All entry names are explicitly encoded in UTF-8
+    AllExplicitUTF8,
+    /// All entry names are explicitly encoded in UTF-8 or implicitly ASCII
+    ExplicitUTF8AndASCII { n_utf8: usize, n_ascii: usize },
+    /// All entry names are implicitly encoded in UTF-8
+    AllASCII,
+    /// All entry names are explicitly encoded in UTF-8 or implicitly Non-ASCII
+    ExplicitUTF8AndLegacy { n_utf8: usize, n_legacy: usize },
+    /// All entry names are implicitly encoded in Non-ASCII
+    AllLegacy,
+}
+
+impl ZipFileEncodingType {
+    /// Get primary message to explain name encoding status
+    fn get_status_primary_message(&self) -> Cow<'static, str> {
+        use ZipFileEncodingType::*;
+        match self {
+            AllExplicitUTF8 => Cow::from("All file names are explicitly encoded in UTF-8."),
+            ExplicitUTF8AndASCII{n_ascii,n_utf8} => Cow::from(format!(
+                "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
+                n_utf8,
+                n_ascii
+            )),
+            AllASCII => Cow::from("All file names are implicitly encoded in ASCII."),
+            ExplicitUTF8AndLegacy{n_utf8,n_legacy} => Cow::from(format!(
+                "Some file names are not explicitly encoded in UTF-8. ({} / {})",
+                n_legacy,
+                n_utf8 + n_legacy,
+            )),
+            AllLegacy => Cow::from("All file names are not explicitly encoded in UTF-8.")
+        }
+    }
+    /// Get note to explain name encoding status (if exists)
+    ///
+    /// Use with `.get_status_primary_message()`
+    fn get_status_note(&self) -> Option<&'static str> {
+        use ZipFileEncodingType::*;
+        match self {
+            ExplicitUTF8AndASCII { .. } | AllASCII => {
+                Some("They can be extracted correctly in all environments without garbling.")
+            }
+            _ => None,
+        }
+    }
+    /// Get color for `.get_status_primary_message()`
+    fn get_status_color(&self) -> ansi_term::Colour {
+        use ZipFileEncodingType::*;
+        match self {
+            AllExplicitUTF8 => Green,
+            ExplicitUTF8AndASCII { .. } | AllASCII => Yellow,
+            _ => Red,
+        }
+    }
+    /// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`) with ANSI styles
+    pub fn print_pretty_string(&self) {
+        if let Some(note) = self.get_status_note() {
+            println!(
+                "{}  {}",
+                self.get_status_color()
+                    .bold()
+                    .paint(self.get_status_primary_message()),
+                note
+            );
+        } else {
+            println!(
+                "{}",
+                self.get_status_color()
+                    .bold()
+                    .paint((self.get_status_primary_message()).as_ref())
+            );
+        }
+    }
+
+    /// Returns `true` if the ZIP archive is universal (do not have to apply this tool)
+    pub fn is_universal_archive(&self) -> bool {
+        use ZipFileEncodingType::*;
+        return match self {
+            AllExplicitUTF8 | AllASCII | ExplicitUTF8AndASCII { .. } => true,
+            _ => false,
+        };
+    }
+}
+
+/// Returns `Ok(ZipFileEncodingType)` , `Err(...)` (anyhow's) when an error occurs in validation
 ///
 /// # Arguments
 ///
 /// * `eocd` - EOCD
 /// * `cd_entries` - Central directories
-fn check_archive(eocd: &ZipEOCD, cd_entries: &[ZipCDEntry]) -> anyhow::Result<bool> {
+fn check_archive(eocd: &ZipEOCD, cd_entries: &[ZipCDEntry]) -> anyhow::Result<ZipFileEncodingType> {
+    use ZipFileEncodingType::*;
+
     let utf8_entries_count = cd_entries
         .iter()
         .filter(|&cd| cd.is_encoded_in_utf8())
         .count();
     if utf8_entries_count == eocd.n_cd_entries as usize {
-        println!(
-            "{}",
-            Green
-                .bold()
-                .paint("All file names are explicitly encoded in UTF-8.")
-        );
-        return Ok(true);
+        return Ok(AllExplicitUTF8);
     }
     let ascii_decoder = filename_decoder::IDecoder::ascii();
     if filename_decoder::decide_decoeder(
@@ -59,39 +142,22 @@ fn check_archive(eocd: &ZipEOCD, cd_entries: &[ZipCDEntry]) -> anyhow::Result<bo
     )
     .is_some()
     {
-        println!(
-                "{}  {}",
-                Yellow.bold().paint(
-                    if utf8_entries_count > 0 {
-                        format!(
-                            "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
-                            utf8_entries_count,
-                            eocd.n_cd_entries as usize - utf8_entries_count,
-                        )
-                    } else {
-                        "All file names are implicitly encoded in ASCII.".to_string()
-                    }),
-                Green.bold().paint("They can be extracted correctly in all environments without garbling.")
-            );
-        return Ok(true);
+        return Ok(if utf8_entries_count > 0 {
+            ExplicitUTF8AndASCII {
+                n_ascii: utf8_entries_count,
+                n_utf8: eocd.n_cd_entries as usize - utf8_entries_count,
+            }
+        } else {
+            AllASCII
+        });
     }
     if utf8_entries_count > 0 {
-        println!(
-            "{}",
-            Red.bold().paint(format!(
-                "Some file names are not explicitly encoded in UTF-8. ({} / {})",
-                eocd.n_cd_entries as usize - utf8_entries_count,
-                eocd.n_cd_entries
-            ))
-        );
-        return Ok(false);
+        return Ok(ExplicitUTF8AndLegacy {
+            n_legacy: eocd.n_cd_entries as usize - utf8_entries_count,
+            n_utf8: utf8_entries_count,
+        });
     }
-    println!(
-        "{}",
-        Red.bold()
-            .paint("All file names are not explicitly encoded in UTF-8.")
-    );
-    return Ok(false);
+    return Ok(AllLegacy);
 }
 
 /// Decodes and prints file names in central directories to stdout
@@ -287,8 +353,13 @@ fn main() -> anyhow::Result<()> {
     let mut cd_entries = ZipCDEntry::all_from_eocd(&mut zip_file, &eocd)?;
 
     if matches.is_present("check") {
-        let is_arhive_safe = check_archive(&eocd, &cd_entries)?;
-        std::process::exit(if is_arhive_safe { 0 } else { 2 });
+        let archive_names_type = check_archive(&eocd, &cd_entries)?;
+        archive_names_type.print_pretty_string();
+        std::process::exit(if archive_names_type.is_universal_archive() {
+            0
+        } else {
+            2
+        });
     }
 
     let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
