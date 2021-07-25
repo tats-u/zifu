@@ -139,7 +139,7 @@ fn check_archive(eocd: &ZipEOCD, cd_entries: &[ZipCDEntry]) -> anyhow::Result<Zi
     if utf8_entries_count == eocd.n_cd_entries as usize {
         return Ok(AllExplicitUTF8);
     }
-    let ascii_decoder = filename_decoder::IDecoder::ascii();
+    let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
     if filename_decoder::decide_decoeder(
         &vec![&ascii_decoder],
         &cd_entries
@@ -370,16 +370,16 @@ fn main() -> anyhow::Result<()> {
     }
 
     let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
-        filename_decoder::IDecoder::from_encoding_name(encoding_name).ok_or(
+        <dyn filename_decoder::IDecoder>::from_encoding_name(encoding_name).ok_or(
             InvalidArgument::InvalidEncodingName {
                 encoding_name: encoding_name.to_string(),
             },
         )?
     } else {
-        filename_decoder::IDecoder::native_oem_encoding()
+        <dyn filename_decoder::IDecoder>::native_oem_encoding()
     };
-    let utf8_decoder = filename_decoder::IDecoder::utf8();
-    let ascii_decoder = filename_decoder::IDecoder::ascii();
+    let utf8_decoder = <dyn filename_decoder::IDecoder>::utf8();
+    let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
     let decoders_list = if matches.is_present("utf-8") {
         vec![&ascii_decoder, &utf8_decoder, &legacy_decoder]
     } else {
