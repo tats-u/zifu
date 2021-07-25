@@ -1,6 +1,6 @@
 Copyright (c) Tatsunori Uchino
 
-All rights reserved. 
+All rights reserved.
 
 MIT License
 
