@@ -1,7 +1,9 @@
 use ansi_term::Color::{Green, Red, Yellow};
 use anyhow::anyhow;
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use clap::{crate_authors, crate_description, crate_version, App, Arg, ArgMatches};
+use clap::{
+    crate_authors, crate_description, crate_version, AppSettings, Clap,
+};
 use filename_decoder::IDecoder;
 use std::borrow::Cow;
 use std::fs::File;
@@ -274,92 +276,71 @@ fn ask_default_yes() -> Result<bool, std::io::Error> {
     return Ok(process_answer_default_yes(&ask_result));
 }
 
-fn get_arg_parser() -> App<'static> {
-    return App::new("ZIP File Names to UTF-8 (ZIFU)")
-    .author(crate_authors!())
-    .version(crate_version!())
-    .about(crate_description!())
-    .arg(
-        Arg::new("input")
-            .about("Path to the ZIP file where you want to change the encoding of the file name to UTF-8")
-            .required(true)
-        )
-    .arg(
-        Arg::new("output")
-            .about("Path to output")
-    )
-    .arg(
-        Arg::new("check")
-            .long("check")
-            .short('c')
-            .about("Finds out if its file names are encoded in UTF-8.")
-    )
-    .arg(
-        Arg::new("list")
-            .short('l')
-            .long("list")
-            .about("Displays the list of file names in the ZIP archive.")
-    )
-    .arg(
-        Arg::new("silent")
-        .short('s')
-        .long("slient")
-        .about("Don't show any messages. (implies -y)")
-    )
-    .arg(
-        Arg::new("quiet")
-        .short('q')
-        .long("quiet")
-        .about("Don't show any messages. (implies -y)")
-    )
-    .arg(
-        Arg::new("encoding")
-        .long("encoding")
-        .short('e')
-        .value_name("ENCODING")
-        .about("Specifies the encoding of file names in the ZIP archive.")
-    )
-    .arg(
-        Arg::new("utf-8")
-            .long("utf8")
-            .short('u')
-            .about("Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)")
-    )
-    .arg(
-        Arg::new("yes")
-        .long("yes")
-        .short('y')
-        .about("Don't confirm")
-    );
+#[derive(Clap)]
+#[clap(name = "ZIP File Names to UTF-8 (ZIFU)", version = crate_version!(), author = crate_authors!(), about = crate_description!())]
+#[clap(setting = AppSettings::ColoredHelp)]
+struct CLIOptions {
+    #[clap(
+        about = "Path to the ZIP file where you want to change the encoding of the file name to UTF-8"
+    )]
+    input: String,
+    #[clap(about = "Path to output")]
+    output: Option<String>,
+    #[clap(
+        short,
+        long,
+        about = "Finds out if its file names are encoded in UTF-8."
+    )]
+    check: bool,
+    #[clap(
+        short,
+        long,
+        about = "Displays the list of file names in the ZIP archive."
+    )]
+    list: bool,
+    #[clap(short, long, about = "Don't show any messages. (implies -y)")]
+    silent: bool,
+    #[clap(short, long, about = "Don't show any messages. (implies -y)")]
+    quiet: bool,
+    #[clap(
+        short,
+        long,
+        value_name = "ENCODING",
+        about = "Specifies the encoding of file names in the ZIP archive."
+    )]
+    encoding: Option<String>,
+    #[clap(
+        short,
+        long,
+        about = "Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)"
+    )]
+    utf8: bool,
+    #[clap(short, long, about = "Don't confirm")]
+    yes: bool,
 }
 
-fn matches_to_global_flags(matches: &ArgMatches) -> GlobalFlags {
-    let verbose = !matches.is_present("silent") && !matches.is_present("quiet");
-    let ask_user = verbose && !matches.is_present("yes");
-    return GlobalFlags { verbose, ask_user };
+impl CLIOptions {
+    pub fn to_global_flags(&self) -> GlobalFlags {
+        let verbose = !self.silent && !self.quiet;
+        return GlobalFlags {
+            verbose,
+            ask_user: verbose && !self.yes,
+        };
+    }
 }
 
 fn main() -> anyhow::Result<()> {
-    let app = get_arg_parser();
+    let cli_options = CLIOptions::parse();
 
-    let matches = app.get_matches();
-    let global_flags = matches_to_global_flags(&matches);
-    let mut zip_file = match matches.value_of("input") {
-        None => {
-            return Err(InvalidArgument::NoArgument {
-                arg_name: "input".to_string(),
-            }
-            .into());
-        }
-        Some(a) => BufReader::new(File::open(a)?),
-    };
+    let global_flags = cli_options.to_global_flags();
+    let mut zip_file =     BufReader::new(File::open(&cli_options.input)?);
 
     let mut eocd = ZipEOCD::from_reader(&mut zip_file)?;
     eocd.check_unsupported_zip_type()?;
 
     let mut cd_entries = ZipCDEntry::all_from_eocd(&mut zip_file, &eocd)?;
 
-    if matches.is_present("check") {
+    if cli_options.check {
         let archive_names_type = check_archive(&eocd, &cd_entries)?;
         archive_names_type.print_status_message();
         std::process::exit(if archive_names_type.is_universal_archive() {
@@ -369,7 +350,7 @@ fn main() -> anyhow::Result<()> {
         });
     }
 
-    let legacy_decoder = if let Some(encoding_name) = matches.value_of("encoding") {
+    let legacy_decoder = if let Some(encoding_name) = cli_options.encoding.as_deref() {
         <dyn filename_decoder::IDecoder>::from_encoding_name(encoding_name).ok_or(
             InvalidArgument::InvalidEncodingName {
                 encoding_name: encoding_name.to_string(),
@@ -380,7 +361,7 @@ fn main() -> anyhow::Result<()> {
     };
     let utf8_decoder = <dyn filename_decoder::IDecoder>::utf8();
     let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
-    let decoders_list = if matches.is_present("utf-8") {
+    let decoders_list = if cli_options.utf8 {
         vec![&ascii_decoder, &utf8_decoder, &legacy_decoder]
     } else {
         vec![&ascii_decoder, &legacy_decoder, &utf8_decoder]
@@ -399,7 +380,7 @@ fn main() -> anyhow::Result<()> {
     ))?;
     let guessed_encoder = decoders_list[best_fit_decoder_index_.unwrap()];
 
-    if matches.is_present("list") {
+    if cli_options.list {
         list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
         return Ok(());
     }
@@ -412,15 +393,11 @@ fn main() -> anyhow::Result<()> {
             }
         }
     }
-    let output_zip_file_str = matches
-        .value_of("output")
-        .ok_or(InvalidArgument::NoArgument {
+    let output_zip_file_str = cli_options.output
+        .as_ref().ok_or(InvalidArgument::NoArgument {
             arg_name: "output".to_string(),
         })?;
-    if matches
-        .value_of("input")
-        .and_then(|input| Some(input == output_zip_file_str))
-        .unwrap_or(false)
+    if &(cli_options.input) == output_zip_file_str
     {
         return Err(InvalidArgument::SameInputOutput.into());
     }
@@ -442,39 +419,35 @@ mod tests {
 
     #[test]
     fn basic_args_parse_test() {
-        let app = get_arg_parser();
-        let matches = app.get_matches_from(vec!["zifu", "before.zip", "after.zip"]);
-        let global_flags = matches_to_global_flags(&matches);
+        let cli_options = CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip"]);
+        let global_flags = cli_options.to_global_flags();
 
         assert_eq!(global_flags.ask_user, true);
         assert_eq!(global_flags.verbose, true);
 
-        assert_eq!(matches.value_of("input"), Some("before.zip"));
-        assert_eq!(matches.value_of("output"), Some("after.zip"));
+        assert_eq!(cli_options.input, "before.zip");
+        assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
     }
 
     #[test]
     fn extended_args_parse_test1() {
-        let app = get_arg_parser();
-        let matches =
-            app.get_matches_from(vec!["zifu", "before.zip", "after.zip", "-q", "-u", "-l"]);
-        let global_flags = matches_to_global_flags(&matches);
+        let cli_options = CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip", "-q", "-u", "-l"]);
+        let global_flags = cli_options.to_global_flags();
 
         assert_eq!(global_flags.ask_user, false);
         assert_eq!(global_flags.verbose, false);
 
-        assert_eq!(matches.value_of("input"), Some("before.zip"));
-        assert_eq!(matches.value_of("output"), Some("after.zip"));
-        assert_eq!(matches.value_of("encoding"), None);
-        assert_eq!(matches.is_present("utf-8"), true);
-        assert_eq!(matches.is_present("check"), false);
-        assert_eq!(matches.is_present("list"), true);
+        assert_eq!(cli_options.input, "before.zip");
+        assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
+        assert_eq!(cli_options.encoding.as_deref(), None);
+        assert_eq!(cli_options.utf8, true);
+        assert_eq!(cli_options.check, false);
+        assert_eq!(cli_options.list, true);
     }
 
     #[test]
     fn extended_args_parse_test2() {
-        let app = get_arg_parser();
-        let matches = app.get_matches_from(vec![
+        let cli_options = CLIOptions::parse_from(vec![
             "zifu",
             "before.zip",
             "after.zip",
@@ -483,23 +456,22 @@ mod tests {
             "sjis",
             "-c",
         ]);
-        let global_flags = matches_to_global_flags(&matches);
+        let global_flags = cli_options.to_global_flags();
 
         assert_eq!(global_flags.ask_user, false);
         assert_eq!(global_flags.verbose, false);
 
-        assert_eq!(matches.value_of("input"), Some("before.zip"));
-        assert_eq!(matches.value_of("output"), Some("after.zip"));
-        assert_eq!(matches.value_of("encoding"), Some("sjis"));
-        assert_eq!(matches.is_present("utf-8"), false);
-        assert_eq!(matches.is_present("check"), true);
-        assert_eq!(matches.is_present("list"), false);
+        assert_eq!(cli_options.input, "before.zip");
+        assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
+        assert_eq!(cli_options.encoding.as_deref(), Some("sjis"));
+        assert_eq!(cli_options.utf8, false);
+        assert_eq!(cli_options.check, true);
+        assert_eq!(cli_options.list, false);
     }
 
     #[test]
     fn extended_args_parse_test3() {
-        let app = get_arg_parser();
-        let matches = app.get_matches_from(vec![
+        let cli_options = CLIOptions::parse_from(vec![
             "zifu",
             "before.zip",
             "after.zip",
@@ -507,16 +479,16 @@ mod tests {
             "--encoding",
             "cp437",
         ]);
-        let global_flags = matches_to_global_flags(&matches);
+        let global_flags = cli_options.to_global_flags();
 
         assert_eq!(global_flags.ask_user, false);
         assert_eq!(global_flags.verbose, true);
 
-        assert_eq!(matches.value_of("input"), Some("before.zip"));
-        assert_eq!(matches.value_of("output"), Some("after.zip"));
-        assert_eq!(matches.value_of("encoding"), Some("cp437"));
-        assert_eq!(matches.is_present("utf-8"), false);
-        assert_eq!(matches.is_present("check"), false);
-        assert_eq!(matches.is_present("list"), false);
+        assert_eq!(cli_options.input, "before.zip");
+        assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
+        assert_eq!(cli_options.encoding.as_deref(), Some("cp437"));
+        assert_eq!(cli_options.utf8, false);
+        assert_eq!(cli_options.check, false);
+        assert_eq!(cli_options.list, false);
     }
 }
