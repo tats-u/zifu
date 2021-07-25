@@ -8,21 +8,21 @@
 
 Have you ever received zip files from other OS users and when you decompressed them, their non-English file name were completely garbled, or when you sent zip files to other OS users, you were told that non-English file names were garbled?
 
-
 This tool checks if file names in zip archives can be decompressed without garbling on all operating systems and languages (i.e. explicitly encoded in UTF-8) and repairs them if not.
-# インストール / How to install
+
+## インストール / How to install
 
 ## バイナリをダウンロード / Download a binary
 
 ここから最新版をダウンロードしてください。 / Download the latest version here.
 
-https://github.com/tats-u/zifu/releases
+<https://github.com/tats-u/zifu/releases>
 
 ## Cargo
 
 次のコマンドを実行してください。 / Run the following command:
 
-```
+```bash
 cargo install zifu
 ```
 
@@ -30,61 +30,61 @@ cargo install zifu
 
 次のコマンドを実行してください。 / Run the following command:
 
-```
+```bash
 cargo install --git https://github.com/tats-u/zifu.git
 ```
 
-# 使い方
+## 使い方
 
 ZIPファイルを修復するには、次のコマンドを入力します。
 
-```
+```text
 zifu <ZIPファイルのパス> <出力先のパス>
 ```
 
 ZIPファイルが明示的にUTF-8でエンコードされているかどうかをチェックするには、次のコマンドを入力します。
 
-```
+```text
 zifu -c <ZIPファイルのパス>
 ```
 
 ZIPファイルのファイル一覧をチェックするには、次のコマンドを入力します。
 
-```
+```text
 zifu -l <ZIPファイルのパス>
 ```
 
 海外で作成されたZIPファイルの名前を表示・もしくは修復する場合は`-e <エンコーディング>`オプションを使用します。例えば、次のコマンドでアメリカで作成されたZIPファイルのファイル名を表示します。
 
-```
+```text
 zifu -l -e cp437 <ZIPファイルのパス>
 ```
 
 また、非常にレアケースですが、Shift-JISではなく、UTF-8を優先して使用したい場合、`-u`オプションを利用します。
 
-# How to use
+## How to use
 
 To repair a ZIP file, run the following command:
 
-```
+```text
 zifu <Path to garbled ZIP file> <Path to output>
 ```
 
 To check if a ZIP file is explicitly encoded in UTF-8, run the following command:
 
-```
+```text
 zifu -c <Path to ZIP file>
 ```
 
 To list file names in a zip file, rum the following command:
 
-```
+```text
 zifu -l <Path to ZIP file>
 ```
 
 To show file names or repair ZIP archives created outside of your country, add `-e <Encoding>` option.  For example, if you get a ZIP archive from Japan, try:
 
-```
+```text
 zifu -e sjis -l <Path to ZIP file>
 ```
 
@@ -92,7 +92,7 @@ Japanese characters will corrected appear.
 
 If you prefer UTF-8 than the encoding of your language, add `-u` option.  This is important if you speak English, Thai, or Vietnamese.  Encodings of Chinese, Japanese, and Korean usually cannot decode strings encoded in UTF-8 without error, so there is little need to add it if you speak them.
 
-# 制限事項 / Restriction
+## 制限事項 / Restriction
 
 以下の言語以外非対応です。 / Only these languages are supported:
 カッコ内は主要なエンコーディングです。 / Primary encodings are given in parenthesis.
@@ -114,10 +114,10 @@ If you prefer UTF-8 than the encoding of your language, add `-u` option.  This i
 
 非対応の言語では、CP437が使用されます。 / CP437 will be used in unsupported languages.
 
-# ライセンス
+## ライセンス
 
 MITライセンスです。詳しくは[LICENSE.txt](LICENSE.txt)をご覧ください。
 
-# License
+## License
 
 The MIT License; see [LICENSE.txt](LICENSE.txt) for details.
