@@ -9,6 +9,7 @@ repository = "https://github.com/tats-u/zifu/"
 description = "Repair corrupted file names in ZIP archives"
 categories = ["command-line-utilities"]
 keywords = ["zip", "archive", "utf-8", "encoding"]
+include = ["src/**/*", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE.txt"]
 
 [package.metadata.deb]
 extended-description = """
