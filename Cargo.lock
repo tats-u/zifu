@@ -531,6 +531,7 @@ version = "0.4.0"
 dependencies = [
  "ansi_term",
  "anyhow",
+ "atty",
  "byteorder",
  "bytesize",
  "clap",

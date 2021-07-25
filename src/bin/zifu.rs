@@ -45,6 +45,15 @@ enum ZipFileEncodingType {
     AllLegacy,
 }
 
+/// Returns reset given ANSI style if non-tty
+fn prepare_for_non_tty(style: ansi_term::Style) -> ansi_term::Style {
+    if atty::is(atty::Stream::Stdout) {
+        style
+    } else {
+        ansi_term::Style::default()
+    }
+}
+
 impl ZipFileEncodingType {
     /// Get primary message to explain name encoding status
     fn get_status_primary_message(&self) -> Cow<'static, str> {
@@ -86,21 +95,19 @@ impl ZipFileEncodingType {
             _ => Red,
         }
     }
-    /// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`) with ANSI styles
-    pub fn print_pretty_string(&self) {
+    /// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`)
+    pub fn print_status_message(&self) {
         if let Some(note) = self.get_status_note() {
             println!(
                 "{}  {}",
-                self.get_status_color()
-                    .bold()
+                prepare_for_non_tty(self.get_status_color().bold())
                     .paint(self.get_status_primary_message()),
-                note
+                prepare_for_non_tty(Green.bold()).paint(note)
             );
         } else {
             println!(
                 "{}",
-                self.get_status_color()
-                    .bold()
+                prepare_for_non_tty(self.get_status_color().bold())
                     .paint((self.get_status_primary_message()).as_ref())
             );
         }
@@ -354,7 +361,7 @@ fn main() -> anyhow::Result<()> {
 
     if matches.is_present("check") {
         let archive_names_type = check_archive(&eocd, &cd_entries)?;
-        archive_names_type.print_pretty_string();
+        archive_names_type.print_status_message();
         std::process::exit(if archive_names_type.is_universal_archive() {
             0
         } else {
