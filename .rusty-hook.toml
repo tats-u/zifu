@@ -1,0 +1,7 @@
+# multiple commands are going to be supported in v0.12 (https://github.com/swellaby/rusty-hook/issues/151)
+[hooks]
+pre-commit = "cargo fmt -- --check -l"
+pre-push = "cargo test"
+
+[logging]
+verbose = true
