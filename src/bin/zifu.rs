@@ -1,14 +1,12 @@
-use ansi_term::Color::{Green, Red, Yellow};
+use ansi_term::Color::{Green, Red};
 use anyhow::anyhow;
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use clap::{
-    crate_authors, crate_description, crate_version, AppSettings, Clap,
-};
+use clap::{crate_authors, crate_description, crate_version, AppSettings, Clap};
 use filename_decoder::IDecoder;
-use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
-use zifu::filename_decoder;
+use zifu::ZipFileEncodingType;
+use zifu::{filename_decoder, ZIFURequirement};
 use zip_central_directory::ZipCDEntry;
 use zip_eocd::ZipEOCD;
 use zip_structs::zip_central_directory;
@@ -27,24 +25,9 @@ enum InvalidArgument {
 
 /// Global behavior options for this program
 #[derive(Debug, Clone, Copy, Default)]
-struct GlobalFlags {
-    verbose: bool,
-    ask_user: bool,
-}
-
-/// Enum that
-#[derive(Debug)]
-enum ZipFileEncodingType {
-    /// All entry names are explicitly encoded in UTF-8
-    AllExplicitUTF8,
-    /// All entry names are explicitly encoded in UTF-8 or implicitly ASCII
-    ExplicitUTF8AndASCII { n_utf8: usize, n_ascii: usize },
-    /// All entry names are implicitly encoded in UTF-8
-    AllASCII,
-    /// All entry names are explicitly encoded in UTF-8 or implicitly Non-ASCII
-    ExplicitUTF8AndLegacy { n_utf8: usize, n_legacy: usize },
-    /// All entry names are implicitly encoded in Non-ASCII
-    AllLegacy,
+pub struct BehaviorFlags {
+    pub verbose: bool,
+    pub ask_user: bool,
 }
 
 /// Returns reset given ANSI style if non-tty
@@ -56,72 +39,35 @@ fn prepare_for_non_tty(style: ansi_term::Style) -> ansi_term::Style {
     }
 }
 
-impl ZipFileEncodingType {
-    /// Get primary message to explain name encoding status
-    fn get_status_primary_message(&self) -> Cow<'static, str> {
-        use ZipFileEncodingType::*;
-        match self {
-            AllExplicitUTF8 => Cow::from("All file names are explicitly encoded in UTF-8."),
-            ExplicitUTF8AndASCII{n_ascii,n_utf8} => Cow::from(format!(
-                "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
-                n_utf8,
-                n_ascii
-            )),
-            AllASCII => Cow::from("All file names are implicitly encoded in ASCII."),
-            ExplicitUTF8AndLegacy{n_utf8,n_legacy} => Cow::from(format!(
-                "Some file names are not explicitly encoded in UTF-8. ({} / {})",
-                n_legacy,
-                n_utf8 + n_legacy,
-            )),
-            AllLegacy => Cow::from("All file names are not explicitly encoded in UTF-8.")
-        }
-    }
-    /// Get note to explain name encoding status (if exists)
-    ///
-    /// Use with `.get_status_primary_message()`
-    fn get_status_note(&self) -> Option<&'static str> {
-        use ZipFileEncodingType::*;
-        match self {
-            ExplicitUTF8AndASCII { .. } | AllASCII => {
-                Some("They can be extracted correctly in all environments without garbling.")
-            }
-            _ => None,
-        }
-    }
-    /// Get color for `.get_status_primary_message()`
-    fn get_status_color(&self) -> ansi_term::Colour {
-        use ZipFileEncodingType::*;
-        match self {
-            AllExplicitUTF8 => Green,
-            ExplicitUTF8AndASCII { .. } | AllASCII => Yellow,
-            _ => Red,
-        }
-    }
-    /// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`)
-    pub fn print_status_message(&self) {
-        if let Some(note) = self.get_status_note() {
-            println!(
-                "{}  {}",
-                prepare_for_non_tty(self.get_status_color().bold())
-                    .paint(self.get_status_primary_message()),
-                prepare_for_non_tty(Green.bold()).paint(note)
-            );
-        } else {
-            println!(
-                "{}",
-                prepare_for_non_tty(self.get_status_color().bold())
-                    .paint((self.get_status_primary_message()).as_ref())
-            );
-        }
-    }
+fn zifu_requirement_to_color(requirement: &ZIFURequirement) -> ansi_term::Colour {
+    use ansi_term::Colour::*;
+    use ZIFURequirement::*;
+    return match requirement {
+        NotRequired => Green,
+        MaybeRequired => Yellow,
+        Required => Red,
+    };
+}
 
-    /// Returns `true` if the ZIP archive is universal (do not have to apply this tool)
-    pub fn is_universal_archive(&self) -> bool {
-        use ZipFileEncodingType::*;
-        return match self {
-            AllExplicitUTF8 | AllASCII | ExplicitUTF8AndASCII { .. } => true,
-            _ => false,
-        };
+/// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`)
+pub fn print_status_message(encoding_type: &ZipFileEncodingType) {
+    if let Some(note) = encoding_type.get_status_note() {
+        println!(
+            "{}  {}",
+            prepare_for_non_tty(
+                zifu_requirement_to_color(&encoding_type.is_zifu_required()).bold()
+            )
+            .paint(encoding_type.get_status_primary_message()),
+            prepare_for_non_tty(Green.bold()).paint(note)
+        );
+    } else {
+        println!(
+            "{}",
+            prepare_for_non_tty(
+                zifu_requirement_to_color(&encoding_type.is_zifu_required()).bold()
+            )
+            .paint((encoding_type.get_status_primary_message()).as_ref())
+        );
     }
 }
 
@@ -320,9 +266,9 @@ struct CLIOptions {
 }
 
 impl CLIOptions {
-    pub fn to_global_flags(&self) -> GlobalFlags {
+    pub fn to_behavior_flags(&self) -> BehaviorFlags {
         let verbose = !self.silent && !self.quiet;
-        return GlobalFlags {
+        return BehaviorFlags {
             verbose,
             ask_user: verbose && !self.yes,
         };
@@ -332,8 +278,8 @@ impl CLIOptions {
 fn main() -> anyhow::Result<()> {
     let cli_options = CLIOptions::parse();
 
-    let global_flags = cli_options.to_global_flags();
-    let mut zip_file =     BufReader::new(File::open(&cli_options.input)?);
+    let behavior_flags = cli_options.to_behavior_flags();
+    let mut zip_file = BufReader::new(File::open(&cli_options.input)?);
 
     let mut eocd = ZipEOCD::from_reader(&mut zip_file)?;
     eocd.check_unsupported_zip_type()?;
@@ -342,7 +288,7 @@ fn main() -> anyhow::Result<()> {
 
     if cli_options.check {
         let archive_names_type = check_archive(&eocd, &cd_entries)?;
-        archive_names_type.print_status_message();
+        print_status_message(&archive_names_type);
         std::process::exit(if archive_names_type.is_universal_archive() {
             0
         } else {
@@ -384,21 +330,22 @@ fn main() -> anyhow::Result<()> {
         list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
         return Ok(());
     }
-    if global_flags.verbose || global_flags.ask_user {
+    if behavior_flags.verbose || behavior_flags.ask_user {
         list_names_in_archive(&cd_entries, &*utf8_decoder, &**guessed_encoder);
-        if global_flags.ask_user {
+        if behavior_flags.ask_user {
             eprint!("Are these file names correct? [Y/n]: ");
             if !(ask_default_yes()?) {
                 std::process::exit(1);
             }
         }
     }
-    let output_zip_file_str = cli_options.output
-        .as_ref().ok_or(InvalidArgument::NoArgument {
+    let output_zip_file_str = cli_options
+        .output
+        .as_ref()
+        .ok_or(InvalidArgument::NoArgument {
             arg_name: "output".to_string(),
         })?;
-    if &(cli_options.input) == output_zip_file_str
-    {
+    if &(cli_options.input) == output_zip_file_str {
         return Err(InvalidArgument::SameInputOutput.into());
     }
 
@@ -420,7 +367,7 @@ mod tests {
     #[test]
     fn basic_args_parse_test() {
         let cli_options = CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip"]);
-        let global_flags = cli_options.to_global_flags();
+        let global_flags = cli_options.to_behavior_flags();
 
         assert_eq!(global_flags.ask_user, true);
         assert_eq!(global_flags.verbose, true);
@@ -431,8 +378,9 @@ mod tests {
 
     #[test]
     fn extended_args_parse_test1() {
-        let cli_options = CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip", "-q", "-u", "-l"]);
-        let global_flags = cli_options.to_global_flags();
+        let cli_options =
+            CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip", "-q", "-u", "-l"]);
+        let global_flags = cli_options.to_behavior_flags();
 
         assert_eq!(global_flags.ask_user, false);
         assert_eq!(global_flags.verbose, false);
@@ -456,7 +404,7 @@ mod tests {
             "sjis",
             "-c",
         ]);
-        let global_flags = cli_options.to_global_flags();
+        let global_flags = cli_options.to_behavior_flags();
 
         assert_eq!(global_flags.ask_user, false);
         assert_eq!(global_flags.verbose, false);
@@ -479,7 +427,7 @@ mod tests {
             "--encoding",
             "cp437",
         ]);
-        let global_flags = cli_options.to_global_flags();
+        let global_flags = cli_options.to_behavior_flags();
 
         assert_eq!(global_flags.ask_user, false);
         assert_eq!(global_flags.verbose, true);
