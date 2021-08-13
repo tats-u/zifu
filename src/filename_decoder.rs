@@ -205,10 +205,7 @@ impl dyn IDecoder {
 ///
 /// * `decoders` - encoding candidates.  The smaller the index, the higher the priority
 /// * `strings` - strings that an encoding must be able to decode all of them
-pub fn decide_decoeder(
-    decoders: &Vec<&Box<dyn IDecoder>>,
-    strings: &Vec<&Vec<u8>>,
-) -> Option<usize> {
+pub fn decide_decoeder(decoders: &Vec<&dyn IDecoder>, strings: &Vec<&Vec<u8>>) -> Option<usize> {
     for i in 0..decoders.len() {
         let decoder = &decoders[i];
         if strings
