@@ -16,13 +16,13 @@ pub trait IDecoder {
     /// # Arguments
     ///
     /// * `input` - sequence of bytes that may represent a string
-    fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String>;
+    fn to_string_lossless(&self, input: &[u8]) -> Option<String>;
     /// Converts to UTF-8 `String` by force (filling with replacement characters)
     ///
     /// # Arguments
     ///
     /// * `input` - sequence of bytes that may represent a string
-    fn to_string_lossy(&self, input: &Vec<u8>) -> String;
+    fn to_string_lossy(&self, input: &[u8]) -> String;
     /// Returns the name of the encoding that the decoder uses
     fn encoding_name(&self) -> &str;
     /// Returns enumerates `ansi_term::Color`
@@ -58,12 +58,12 @@ struct LegacyEncodingDecoder {
 }
 
 impl IDecoder for UTF8NFCDecoder {
-    fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
+    fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
         return String::from_utf8(input.to_vec())
             .map(|s| compose_from_hfs_nfd(s))
             .ok();
     }
-    fn to_string_lossy(&self, input: &Vec<u8>) -> String {
+    fn to_string_lossy(&self, input: &[u8]) -> String {
         return compose_from_hfs_nfd(String::from_utf8_lossy(&input));
     }
     fn encoding_name(&self) -> &str {
@@ -75,14 +75,14 @@ impl IDecoder for UTF8NFCDecoder {
 }
 
 impl IDecoder for ASCIIDecoder {
-    fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
+    fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
         if input.iter().any(|c| !c.is_ascii()) {
             return None;
         }
         // UTF-8 is upper compatible with ASCII
         return String::from_utf8(input.to_vec()).ok();
     }
-    fn to_string_lossy(&self, input: &Vec<u8>) -> String {
+    fn to_string_lossy(&self, input: &[u8]) -> String {
         return input
             .iter()
             .map(|c| if c.is_ascii() { *c as char } else { '\u{FFFD}' })
@@ -109,10 +109,10 @@ impl OEMCPDecoder {
 }
 
 impl IDecoder for OEMCPDecoder {
-    fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
+    fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
         return self.decoder.decode_string_checked(input);
     }
-    fn to_string_lossy(&self, input: &Vec<u8>) -> String {
+    fn to_string_lossy(&self, input: &[u8]) -> String {
         return self.decoder.decode_string_lossy(input);
     }
     fn encoding_name(&self) -> &str {
@@ -124,14 +124,14 @@ impl IDecoder for OEMCPDecoder {
 }
 
 impl IDecoder for LegacyEncodingDecoder {
-    fn to_string_lossless(&self, input: &Vec<u8>) -> Option<String> {
+    fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
         let (result, _, met_invalid_char) = self.decoder.decode(&input);
         if met_invalid_char {
             return None;
         }
         return Some(result.into_owned());
     }
-    fn to_string_lossy(&self, input: &Vec<u8>) -> String {
+    fn to_string_lossy(&self, input: &[u8]) -> String {
         return self.decoder.decode(&input).0.into_owned();
     }
     fn encoding_name(&self) -> &str {
