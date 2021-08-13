@@ -151,11 +151,11 @@ where
         let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
         if filename_decoder::decide_decoeder(
             &vec![&*ascii_decoder],
-            &self
+            &*(&self
                 .cd_entries
                 .iter()
-                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
-                .collect(),
+                .flat_map(|cd| [Cow::from(&cd.file_name_raw), Cow::from(&cd.file_comment)])
+                .collect::<Vec<Cow<[u8]>>>()),
         )
         .is_some()
         {
@@ -184,14 +184,14 @@ where
     /// # Arguments
     ///
     /// * `decoders_list` - list of decoders; the former the higher priority.
-    pub fn get_filename_decoder_index(&self, decoders_list: &Vec<&dyn IDecoder>) -> Option<usize> {
+    pub fn get_filename_decoder_index(&self, decoders_list: &[&dyn IDecoder]) -> Option<usize> {
         return filename_decoder::decide_decoeder(
             decoders_list,
-            &self
+            &*(&self
                 .cd_entries
                 .iter()
-                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
-                .collect(),
+                .flat_map(|cd| [Cow::from(&cd.file_name_raw), Cow::from(&cd.file_comment)])
+                .collect::<Vec<Cow<[u8]>>>()),
         );
     }
 
