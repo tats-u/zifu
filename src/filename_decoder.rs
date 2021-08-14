@@ -5,7 +5,6 @@ use locale_name_code_page::get_codepage;
 use oem_cp::code_table::DECODING_TABLE_CP_MAP;
 use oem_cp::code_table_type::TableType;
 use regex::Regex;
-use std::borrow::Cow;
 
 use hfs_nfd::compose_from_hfs_nfd;
 use locale_config::Locale;
@@ -205,13 +204,16 @@ impl dyn IDecoder {
 /// # Arguments
 ///
 /// * `decoders` - encoding candidates.  The smaller the index, the higher the priority
-/// * `strings` - strings that an encoding must be able to decode all of them (use `Cow::from`)
-pub fn decide_decoeder(decoders: &[&dyn IDecoder], strings: &[Cow<[u8]>]) -> Option<usize> {
+/// * `strings` - strings that an encoding must be able to decode all of them
+pub fn decide_decoeder<T>(decoders: &[&dyn IDecoder], strings: &[T]) -> Option<usize>
+where
+    T: AsRef<[u8]>,
+{
     for i in 0..decoders.len() {
         let decoder = decoders[i];
         if strings
-            .iter()
-            .all(|subject| decoder.to_string_lossless(&**subject) != None)
+            .into_iter()
+            .all(|subject| decoder.to_string_lossless(subject.as_ref()) != None)
         {
             return Some(i);
         }
