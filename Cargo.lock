@@ -248,11 +248,11 @@ dependencies = [
 
 [[package]]
 name = "hfs_nfd"
-version = "1.1.0"
+version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc4ab9c60b03b98d92ead6745c4db73a754e0f94341954b254301aeaab6525bf"
+checksum = "caf13daaf6647c1d932ccd9565c1f0c8b6532531e5aeb9eca23f1f86ef2e5be3"
 dependencies = [
- "ahash 0.4.7",
+ "ahash 0.7.4",
  "lazy_static",
  "thiserror",
 ]
@@ -689,7 +689,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "zifu"
-version = "0.5.0"
+version = "0.5.1-beta"
 dependencies = [
  "ansi_term",
  "anyhow",

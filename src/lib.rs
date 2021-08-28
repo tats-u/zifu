@@ -2,6 +2,7 @@ use std::borrow::Cow;
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use filename_decoder::IDecoder;
+use hfs_nfd::compose_from_hfs_nfd;
 use zip_structs::{
     zip_central_directory::ZipCDEntry, zip_eocd::ZipEOCD, zip_error::ZipReadError,
     zip_local_file_header,
@@ -207,7 +208,7 @@ where
                 if cd.is_encoded_in_utf8() {
                     return FileNameEntry {
                         is_encoding_explicit: true,
-                        name: String::from_utf8_lossy(&*(cd.file_name_raw)).to_string(),
+                        name: compose_from_hfs_nfd(&String::from_utf8_lossy(&*(cd.file_name_raw))),
                     };
                 }
                 return FileNameEntry {
@@ -228,6 +229,11 @@ where
     pub fn convert_central_directory_file_names(&mut self, legacy_decoder: &dyn IDecoder) {
         self.cd_entries.iter_mut().for_each(|cd| {
             if cd.is_encoded_in_utf8() {
+                let original_file_name = String::from_utf8_lossy(&cd.file_name_raw);
+                let nfc_file_name = compose_from_hfs_nfd(&original_file_name);
+                if original_file_name != nfc_file_name {
+                    cd.set_file_name_from_slice(&nfc_file_name.as_bytes().to_vec());
+                }
                 return;
             }
             cd.set_file_name_from_slice(

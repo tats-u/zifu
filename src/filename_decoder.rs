@@ -60,11 +60,11 @@ struct LegacyEncodingDecoder {
 impl IDecoder for UTF8NFCDecoder {
     fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
         return String::from_utf8(input.to_vec())
-            .map(|s| compose_from_hfs_nfd(s))
+            .map(|s| compose_from_hfs_nfd(&s))
             .ok();
     }
     fn to_string_lossy(&self, input: &[u8]) -> String {
-        return compose_from_hfs_nfd(String::from_utf8_lossy(&input));
+        return compose_from_hfs_nfd(&String::from_utf8_lossy(input));
     }
     fn encoding_name(&self) -> &str {
         return "UTF-8";
