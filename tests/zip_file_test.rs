@@ -270,3 +270,53 @@ fn aes256_convert_test() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn macos_finder_emulate_test() -> anyhow::Result<()> {
+    use zip_structs;
+    static FILE_NAME: &str = "ほげふがぴよ.txt";
+    let mut before = InputZIPArchive::new(open_bufreader("tests/assets/mac_finder_emulate.zip")?)?;
+    before.check_unsupported_zip_type()?;
+    assert!(
+        matches!(
+            before.check_file_name_encoding(),
+            ZipFileEncodingType::AllExplicitUTF8
+        ),
+        "file name encoding == AllExplicitUTF8"
+    );
+    let decoder = <dyn IDecoder>::utf8();
+    let names_list = before.get_file_names_list(&*decoder);
+    let name_entry = names_list
+        .get(0)
+        .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
+    assert_eq!(
+        name_entry.name, FILE_NAME,
+        "file name is `ほげふがぴよ.txt` (NFC)"
+    );
+    assert_eq!(
+        name_entry.is_encoding_explicit, true,
+        "file name is explicitly encoded"
+    );
+
+    let mut dump = Cursor::new(Vec::<u8>::new());
+    before.convert_central_directory_file_names(&*decoder);
+    before.output_archive_with_central_directory_file_names(&mut dump)?;
+    dump.seek(SeekFrom::Start(0))?;
+    let after_eocd = zip_structs::zip_eocd::ZipEOCD::from_reader(&mut dump)?;
+    let after_cd_list =
+        zip_structs::zip_central_directory::ZipCDEntry::all_from_eocd(&mut dump, &after_eocd)?;
+    let after_cd = after_cd_list.get(0).ok_or(anyhow::anyhow!(
+        "No central directorie is found in exported ZIP archive"
+    ))?;
+    assert_eq!(
+        &after_cd.file_name_raw,
+        FILE_NAME.as_bytes(),
+        "Exported file name is encoded in NFC (data)"
+    );
+    assert_eq!(
+        after_cd.file_name_length as usize,
+        FILE_NAME.len(),
+        "Exported file name is encoded in NFC (size)"
+    );
+    Ok(())
+}
