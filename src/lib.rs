@@ -152,11 +152,11 @@ where
         let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
         if filename_decoder::decide_decoder(
             &vec![&*ascii_decoder],
-            &self
+            &(&self
                 .cd_entries
                 .iter()
-                .flat_map(|cd| [&cd.file_name_raw, &cd.file_comment])
-                .collect::<Vec<&Vec<u8>>>(),
+                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
+                .collect::<Vec<&Vec<u8>>>()),
         )
         .is_some()
         {
@@ -188,11 +188,11 @@ where
     pub fn get_filename_decoder_index(&self, decoders_list: &[&dyn IDecoder]) -> Option<usize> {
         return filename_decoder::decide_decoder(
             decoders_list,
-            &self
+            &(&self
                 .cd_entries
                 .iter()
-                .flat_map(|cd| [&cd.file_name_raw, &cd.file_comment])
-                .collect::<Vec<&Vec<u8>>>(),
+                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
+                .collect::<Vec<&Vec<u8>>>()),
         );
     }
 
