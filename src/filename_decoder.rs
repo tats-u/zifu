@@ -205,7 +205,7 @@ impl dyn IDecoder {
 ///
 /// * `decoders` - encoding candidates.  The smaller the index, the higher the priority
 /// * `strings` - strings that an encoding must be able to decode all of them
-pub fn decide_decoeder<T>(decoders: &[&dyn IDecoder], strings: &[T]) -> Option<usize>
+pub fn decide_decoder<T>(decoders: &[&dyn IDecoder], strings: &[T]) -> Option<usize>
 where
     T: AsRef<[u8]>,
 {

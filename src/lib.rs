@@ -150,7 +150,7 @@ where
             return AllExplicitUTF8;
         }
         let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
-        if filename_decoder::decide_decoeder(
+        if filename_decoder::decide_decoder(
             &vec![&*ascii_decoder],
             &self
                 .cd_entries
@@ -186,7 +186,7 @@ where
     ///
     /// * `decoders_list` - list of decoders; the former the higher priority.
     pub fn get_filename_decoder_index(&self, decoders_list: &[&dyn IDecoder]) -> Option<usize> {
-        return filename_decoder::decide_decoeder(
+        return filename_decoder::decide_decoder(
             decoders_list,
             &self
                 .cd_entries
