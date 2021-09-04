@@ -34,12 +34,12 @@ pub trait IDecoder {
 /// UTF-8 decoder
 ///
 /// Also normalize NFD (Apple's variant) encoded names to NFC.
-struct UTF8NFCDecoder {}
+pub struct UTF8NFCDecoder {}
 
 /// ASCII decoder
 ///
 /// Allows only <= U+7F characters
-struct ASCIIDecoder {}
+pub struct ASCIIDecoder {}
 
 /// OEM code page decoder (other than Asian languages)
 ///

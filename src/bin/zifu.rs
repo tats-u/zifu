@@ -1,12 +1,14 @@
+use ansi_term::ANSIGenericString;
 use ansi_term::Color::{Green, Red};
 use anyhow::anyhow;
 use clap::{crate_authors, crate_description, crate_version, AppSettings, Clap};
 use filename_decoder::IDecoder;
+use lazy_static::lazy_static;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::vec;
-use zifu::{filename_decoder, FileNameEntry, ZIFURequirement};
-use zifu::{InputZIPArchive, ZipFileEncodingType};
+use zifu::InputZIPArchive;
+use zifu::{filename_decoder, FileNameEncodingType, FileNameEntry, FileNamesDiagnosis};
 
 #[derive(thiserror::Error, Debug)]
 enum InvalidArgument {
@@ -34,38 +36,31 @@ fn prepare_for_non_tty(style: ansi_term::Style) -> ansi_term::Style {
     }
 }
 
-fn zifu_requirement_to_color(requirement: &ZIFURequirement) -> ansi_term::Colour {
-    use ansi_term::Colour::*;
-    use ZIFURequirement::*;
-    return match requirement {
-        NotRequired => Green,
-        MaybeRequired => Yellow,
-        Required => Red,
-    };
-}
-
 /// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`)
-pub fn print_status_message(encoding_type: &ZipFileEncodingType) {
-    if let Some(note) = encoding_type.get_status_note() {
-        println!(
-            "{}  {}",
-            prepare_for_non_tty(
-                zifu_requirement_to_color(&encoding_type.is_zifu_required()).bold()
-            )
-            .paint(encoding_type.get_status_primary_message()),
-            prepare_for_non_tty(Green.bold()).paint(note)
-        );
-    } else {
-        println!(
-            "{}",
-            prepare_for_non_tty(
-                zifu_requirement_to_color(&encoding_type.is_zifu_required()).bold()
-            )
-            .paint((encoding_type.get_status_primary_message()).as_ref())
-        );
-    }
+pub fn print_status_message(diagnosis: &FileNamesDiagnosis) {
+    use ansi_term::Colour::*;
+    println!(
+        "{}  {}",
+        prepare_for_non_tty(
+            (if diagnosis.is_universal_archive() {
+                Green
+            } else {
+                Red
+            })
+            .bold()
+        )
+        .paint(diagnosis.get_status_primary_message()),
+        prepare_for_non_tty(
+            (if diagnosis.is_universal_archive() {
+                Green
+            } else {
+                Yellow
+            })
+            .bold()
+        )
+        .paint(diagnosis.get_status_note())
+    );
 }
-
 /// Decodes and prints file names in central directories to stdout
 ///
 /// # Arguments
@@ -74,24 +69,28 @@ pub fn print_status_message(encoding_type: &ZipFileEncodingType) {
 /// * `utf8_decoder` - UTF-8 decoder (used when explicitly encoded in UTF-8)
 /// * `legacy_decoder` - Legacy charset decoder (used otherwise)
 fn list_names_in_archive(fie_name_entries: &[FileNameEntry], legacy_decoder: &dyn IDecoder) {
+    use FileNameEncodingType::*;
+    lazy_static! {
+        static ref REGULAR_UTF8: ANSIGenericString<'static, str> =
+            prepare_for_non_tty(Green.bold()).paint("REGULAR UTF-8");
+        static ref IRREGULAR_UTF8: ANSIGenericString<'static, str> =
+            prepare_for_non_tty(Red.bold()).paint("IRREGULAR UTF-8");
+        static ref ASCII_GREEN: ANSIGenericString<'static, str> =
+            prepare_for_non_tty(Green.bold()).paint("ASCII");
+        static ref GUESSED: ANSIGenericString<'static, str> =
+            prepare_for_non_tty(Red.bold()).paint("GUESSED");
+    }
     for entry in fie_name_entries {
-        if entry.is_encoding_explicit {
-            println!(
-                "{}:{}:{}",
-                Green.bold().paint("EXPLICIT"),
-                Green.bold().paint("UTF-8"),
+        match entry.encoding_type {
+            ExplicitRegularUTF8 => println!("{}:{}", &*REGULAR_UTF8, &entry.name),
+            ExplicitIrregularUTF8 => println!("{}:{}", &*IRREGULAR_UTF8, &entry.name),
+            ImplicitASCII => println!("{}:{}", &*ASCII_GREEN, &entry.name),
+            ImplicitNonASCII => println!(
+                "{} {}:{}",
+                prepare_for_non_tty(Red.bold()).paint(legacy_decoder.encoding_name()),
+                &*GUESSED,
                 &entry.name
-            );
-        } else {
-            println!(
-                "{}:{}:{}",
-                Red.bold().paint("GUESSED"),
-                legacy_decoder
-                    .color()
-                    .bold()
-                    .paint(legacy_decoder.encoding_name()),
-                &entry.name
-            );
+            ),
         }
     }
 }
@@ -179,7 +178,7 @@ fn main() -> anyhow::Result<()> {
     input_zip_file.check_unsupported_zip_type()?;
 
     if cli_options.check {
-        let archive_names_type = input_zip_file.check_file_name_encoding();
+        let archive_names_type = input_zip_file.diagnose_file_name_encoding();
         print_status_message(&archive_names_type);
         std::process::exit(if archive_names_type.is_universal_archive() {
             0

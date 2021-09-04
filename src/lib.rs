@@ -1,7 +1,5 @@
-use std::borrow::Cow;
-
 use byteorder::{ReadBytesExt, WriteBytesExt};
-use filename_decoder::IDecoder;
+use filename_decoder::{ASCIIDecoder, IDecoder};
 use hfs_nfd::compose_from_hfs_nfd;
 use zip_structs::{
     zip_central_directory::ZipCDEntry, zip_eocd::ZipEOCD, zip_error::ZipReadError,
@@ -10,15 +8,9 @@ use zip_structs::{
 
 pub mod filename_decoder;
 
-/// How much this tool is required
-pub enum ZIFURequirement {
-    /// All UTF-8 and this tool is not needed
-    NotRequired,
-    /// UTF-8 & ASCII (universal) and you might want to apply this tool
-    MaybeRequired,
-    /// Not universal and you must apply this tool
-    Required,
-}
+static ASCII_DECODER: ASCIIDecoder = ASCIIDecoder {};
+
+/// This is for listing file names
 
 /// This is for listing file names
 #[derive(Clone, Debug)]
@@ -28,76 +20,71 @@ pub struct FileNameEntry {
     /// Explicitly UTF-8 encoded (general purpose flag #11)
     ///
     /// If `false`, print the encoding name whose decoder you used
-    pub is_encoding_explicit: bool,
+    pub encoding_type: FileNameEncodingType,
 }
 
 /// Enum that represents statistics of file name encoding
 ///
-/// UTF-8 / ASCII / Legacy (Non-UTF-8 multibytes)
+/// UTF-8 (Regular normalization (NFC) / Irregular (HFS+ NFD-like)) / ASCII / Implicit multibyte
 #[derive(Debug, Clone)]
-pub enum ZipFileEncodingType {
-    /// All entry names are explicitly encoded in UTF-8
-    AllExplicitUTF8,
-    /// All entry names are explicitly encoded in UTF-8 or implicitly ASCII
-    ExplicitUTF8AndASCII { n_utf8: usize, n_ascii: usize },
-    /// All entry names are implicitly encoded in UTF-8
-    AllASCII,
-    /// All entry names are explicitly encoded in UTF-8 or implicitly Non-ASCII
-    ExplicitUTF8AndLegacy { n_utf8: usize, n_legacy: usize },
-    /// All entry names are implicitly encoded in Non-ASCII
-    AllLegacy,
+pub enum FileNameEncodingType {
+    /// genral bit #11 + NFC normalization (universal)
+    ExplicitRegularUTF8,
+    /// general bit #11 + non-NFC normalization (e.g. HFS+ NFD-like normalization)
+    ///
+    /// Used by e.g. Finder in macOS
+    ExplicitIrregularUTF8,
+    /// no general bit #11 + ASCII (universal)
+    ImplicitASCII,
+    /// no general bit #11 + non-ASCII encoding (e.g. CP437, Shift-JIS, or UTF-8)
+    ImplicitNonASCII,
 }
 
-impl ZipFileEncodingType {
-    /// Get primary message to explain name encoding status
-    pub fn get_status_primary_message(&self) -> Cow<'static, str> {
-        use ZipFileEncodingType::*;
+impl FileNameEncodingType {
+    /// Regturns `true` if the file name is correctly decoded in almost all devices
+    pub fn is_universal(&self) -> bool {
+        use FileNameEncodingType::*;
         match self {
-            AllExplicitUTF8 => Cow::from("All file names are explicitly encoded in UTF-8."),
-            ExplicitUTF8AndASCII{n_ascii,n_utf8} => Cow::from(format!(
-                "{} file names are explicitly encoded in UTF-8, and {} file names are implicitly ASCII.",
-                n_utf8,
-                n_ascii
-            )),
-            AllASCII => Cow::from("All file names are implicitly encoded in ASCII."),
-            ExplicitUTF8AndLegacy{n_utf8,n_legacy} => Cow::from(format!(
-                "Some file names are not explicitly encoded in UTF-8. ({} / {})",
-                n_legacy,
-                n_utf8 + n_legacy,
-            )),
-            AllLegacy => Cow::from("All file names are not explicitly encoded in UTF-8.")
+            ExplicitRegularUTF8 | ImplicitASCII => true,
+            _ => false,
+        }
+    }
+}
+
+/// Represents diagnostic result of the file names
+#[derive(Clone, Debug)]
+pub struct FileNamesDiagnosis {
+    /// `true` if contains implicit (general purpose bit #11 not set) non-ASCII
+    /// (e.g. UTF-8, CP437, or Shift-JIS) file names
+    pub has_implicit_non_ascii_names: bool,
+    /// contains explicit (general purpose bit #11) irregular (e.g. HFS+ NFD) file names
+    pub has_non_nfc_explicit_utf8_names: bool,
+}
+
+impl FileNamesDiagnosis {
+    /// Getprimary message to explain name encoding status
+    pub fn get_status_primary_message(&self) -> &'static str {
+        match (self.has_implicit_non_ascii_names, self.has_non_nfc_explicit_utf8_names) {
+            (false, false) => "All file names are encoded in ASCII or explicitly in UTF-8.",
+            (true, false) => "Some files are encoded implicitly in a multibyte encoding.",
+            (false, true) => "Some file names use irregular unicode normalization.",
+            (true, true) => "Some files use irregular unicode normalization and others are encoded implicitly in a multibyte encoding.",
         }
     }
     /// Get note to explain name encoding status (if exists)
     ///
     /// Use with `.get_status_primary_message()`
-    pub fn get_status_note(&self) -> Option<&'static str> {
-        use ZipFileEncodingType::*;
-        match self {
-            ExplicitUTF8AndASCII { .. } | AllASCII => {
-                Some("They can be extracted correctly in all environments without garbling.")
-            }
-            _ => None,
+    pub fn get_status_note(&self) -> &'static str {
+        match (self.has_implicit_non_ascii_names, self.has_non_nfc_explicit_utf8_names) {
+            (false, false) => "Almost all devices can decode its file names correctly.",
+            (true, _) => "Apply this tool, or the receiver may not be able to see the correct file names.",
+            (false, true) => "Apply this tool, or the receiver may not deal with the pericular file name normalization.",
         }
     }
 
     /// Returns `true` if the ZIP archive is universal (do not have to apply this tool)
     pub fn is_universal_archive(&self) -> bool {
-        use ZipFileEncodingType::*;
-        return match self {
-            AllExplicitUTF8 | AllASCII | ExplicitUTF8AndASCII { .. } => true,
-            _ => false,
-        };
-    }
-
-    pub fn is_zifu_required(&self) -> ZIFURequirement {
-        use ZIFURequirement::*;
-        use ZipFileEncodingType::*;
-        match self {
-            AllExplicitUTF8 => NotRequired,
-            ExplicitUTF8AndASCII { .. } | AllASCII => MaybeRequired,
-            _ => Required,
-        }
+        return !self.has_implicit_non_ascii_names && !self.has_non_nfc_explicit_utf8_names;
     }
 }
 
@@ -135,47 +122,30 @@ where
         });
     }
 
-    /// Returns the file name encoding statistics.
+    /// Returns the file name encoding diagnossis.
     ///
-    /// For details, see the description for `ZipFileEncodingType`.
-    pub fn check_file_name_encoding(&self) -> ZipFileEncodingType {
-        use ZipFileEncodingType::*;
-
-        let utf8_entries_count = self
-            .cd_entries
-            .iter()
-            .filter(|&cd| cd.is_encoded_in_utf8())
-            .count();
-        if utf8_entries_count == self.eocd.n_cd_entries as usize {
-            return AllExplicitUTF8;
-        }
-        let ascii_decoder = <dyn filename_decoder::IDecoder>::ascii();
-        if filename_decoder::decide_decoder(
-            &vec![&*ascii_decoder],
-            &(&self
+    /// For details, see the description for `FileNamesDiagnosis`.
+    pub fn diagnose_file_name_encoding(&self) -> FileNamesDiagnosis {
+        FileNamesDiagnosis {
+            has_implicit_non_ascii_names: self
                 .cd_entries
                 .iter()
-                .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
-                .collect::<Vec<&Vec<u8>>>()),
-        )
-        .is_some()
-        {
-            return if utf8_entries_count > 0 {
-                ExplicitUTF8AndASCII {
-                    n_ascii: utf8_entries_count,
-                    n_utf8: self.eocd.n_cd_entries as usize - utf8_entries_count,
-                }
-            } else {
-                AllASCII
-            };
+                .filter(|cd| !cd.is_encoded_in_utf8())
+                .any(|cd| {
+                    ASCII_DECODER
+                        .to_string_lossless(&cd.file_name_raw)
+                        .is_none()
+                }),
+            has_non_nfc_explicit_utf8_names: self
+                .cd_entries
+                .iter()
+                .filter(|cd| cd.is_encoded_in_utf8())
+                .any(|cd| {
+                    let original_name = String::from_utf8_lossy(&cd.file_name_raw);
+                    let nfc_name = compose_from_hfs_nfd(&original_name);
+                    &original_name != &nfc_name
+                }),
         }
-        if utf8_entries_count > 0 {
-            return ExplicitUTF8AndLegacy {
-                n_legacy: self.eocd.n_cd_entries as usize - utf8_entries_count,
-                n_utf8: utf8_entries_count,
-            };
-        }
-        return AllLegacy;
     }
 
     /// Test applying given decoders to the file names and returns the index of the first successful one.
@@ -202,17 +172,30 @@ where
     ///
     /// * `legacy_decoder` - used for implicitly-encoded file names.
     pub fn get_file_names_list(&self, legacy_decoder: &dyn IDecoder) -> Vec<FileNameEntry> {
+        use FileNameEncodingType::*;
         self.cd_entries
             .iter()
             .map(|cd| {
                 if cd.is_encoded_in_utf8() {
+                    let original_file_name = String::from_utf8_lossy(&*(cd.file_name_raw));
+                    let nfc_file_name = compose_from_hfs_nfd(&original_file_name);
                     return FileNameEntry {
-                        is_encoding_explicit: true,
-                        name: compose_from_hfs_nfd(&String::from_utf8_lossy(&*(cd.file_name_raw))),
+                        encoding_type: if &original_file_name == &nfc_file_name {
+                            ExplicitRegularUTF8
+                        } else {
+                            ExplicitIrregularUTF8
+                        },
+                        name: nfc_file_name,
+                    };
+                }
+                if let Some(ascii_file_name) = ASCII_DECODER.to_string_lossless(&cd.file_name_raw) {
+                    return FileNameEntry {
+                        encoding_type: ImplicitASCII,
+                        name: ascii_file_name,
                     };
                 }
                 return FileNameEntry {
-                    is_encoding_explicit: false,
+                    encoding_type: ImplicitNonASCII,
                     name: legacy_decoder.to_string_lossy(&cd.file_name_raw),
                 };
             })

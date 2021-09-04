@@ -9,7 +9,7 @@ use std::{
 use tempfile::tempdir;
 use zifu::{
     filename_decoder::{self, IDecoder},
-    InputZIPArchive, ZipFileEncodingType,
+    FileNameEncodingType, InputZIPArchive,
 };
 
 fn open_bufreader(path: &str) -> anyhow::Result<BufReader<File>> {
@@ -33,11 +33,10 @@ fn convert_and_compare_content_test() -> anyhow::Result<()> {
     let mut before = InputZIPArchive::new(open_bufreader("tests/assets/before.zip")?)?;
     before.check_unsupported_zip_type()?;
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllLegacy
-        ),
-        "file name encoding == AllLegacy"
+        before
+            .diagnose_file_name_encoding()
+            .has_implicit_non_ascii_names,
+        "has non-ASCII file names"
     );
     let sjis_decoder = <dyn filename_decoder::IDecoder>::from_encoding_name("sjis").ok_or(
         anyhow::anyhow!("`sjis` is not suitable encoding name for `IDecoder::from_encoding_name`"),
@@ -54,19 +53,19 @@ fn convert_and_compare_content_test() -> anyhow::Result<()> {
         .get(0)
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
-    assert_eq!(
-        name_entry.is_encoding_explicit, false,
-        "file name is implicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ImplicitNonASCII
+        ),
+        "file name is implicit non-ASCII"
     );
 
     before.convert_central_directory_file_names(&*sjis_decoder);
 
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllExplicitUTF8
-        ),
-        "file name encoding turned to be AllExplicitUTF8"
+        before.diagnose_file_name_encoding().is_universal_archive(),
+        "archive is universal after application"
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
@@ -76,9 +75,12 @@ fn convert_and_compare_content_test() -> anyhow::Result<()> {
         name_entry.name, "テスト.txt",
         "file name is still `テスト.txt`"
     );
-    assert_eq!(
-        name_entry.is_encoding_explicit, true,
-        "file name turned to be explicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ExplicitRegularUTF8
+        ),
+        "file name turned to be explicitly regular UTF-8"
     );
 
     let mut dump = Cursor::new(Vec::<u8>::new());
@@ -99,11 +101,8 @@ fn utf8_unencrypted_archive_test() -> anyhow::Result<()> {
     let mut zip = InputZIPArchive::new(open_bufreader("tests/assets/after.zip")?)?;
     zip.check_unsupported_zip_type()?;
     assert!(
-        matches!(
-            zip.check_file_name_encoding(),
-            ZipFileEncodingType::AllExplicitUTF8
-        ),
-        "file name encoding is AllExplicitUTF8"
+        zip.diagnose_file_name_encoding().is_universal_archive(),
+        "universal archive",
     );
     let decoder = <dyn IDecoder>::utf8();
     let names_list = zip.get_file_names_list(&*decoder);
@@ -111,9 +110,12 @@ fn utf8_unencrypted_archive_test() -> anyhow::Result<()> {
         .get(0)
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
-    assert_eq!(
-        name_entry.is_encoding_explicit, true,
-        "file name is explicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ExplicitRegularUTF8
+        ),
+        "file name is explicitly regular UTF-8"
     );
 
     let mut dump1 = Cursor::new(Vec::<u8>::new());
@@ -140,11 +142,10 @@ fn zipcrypto_convert_test() -> anyhow::Result<()> {
     let mut before = InputZIPArchive::new(open_bufreader("tests/assets/zipcrypto_sjis.zip")?)?;
     before.check_unsupported_zip_type()?;
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllLegacy
-        ),
-        "file name encoding == AllLegacy"
+        before
+            .diagnose_file_name_encoding()
+            .has_implicit_non_ascii_names,
+        "has implicit non-ASCII file names"
     );
     let sjis_decoder = <dyn filename_decoder::IDecoder>::from_encoding_name("sjis").ok_or(
         anyhow::anyhow!("`sjis` is not suitable encoding name for `IDecoder::from_encoding_name`"),
@@ -161,19 +162,19 @@ fn zipcrypto_convert_test() -> anyhow::Result<()> {
         .get(0)
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
-    assert_eq!(
-        name_entry.is_encoding_explicit, false,
-        "file name is implicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ImplicitNonASCII
+        ),
+        "file name is implicit non-ASCII"
     );
 
     before.convert_central_directory_file_names(&*sjis_decoder);
 
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllExplicitUTF8
-        ),
-        "file name encoding turned to be AllExplicitUTF8"
+        before.diagnose_file_name_encoding().is_universal_archive(),
+        "archive turned to be universal"
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
@@ -183,9 +184,12 @@ fn zipcrypto_convert_test() -> anyhow::Result<()> {
         name_entry.name, "テスト.txt",
         "file name is still `テスト.txt`"
     );
-    assert_eq!(
-        name_entry.is_encoding_explicit, true,
-        "file name turned to be explicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ExplicitRegularUTF8
+        ),
+        "file name turned to be explicit regular UTF-8"
     );
 
     if which::which("7z").is_ok() {
@@ -208,11 +212,10 @@ fn aes256_convert_test() -> anyhow::Result<()> {
     let mut before = InputZIPArchive::new(open_bufreader("tests/assets/zipcrypto_sjis.zip")?)?;
     before.check_unsupported_zip_type()?;
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllLegacy
-        ),
-        "file name encoding == AllLegacy"
+        before
+            .diagnose_file_name_encoding()
+            .has_implicit_non_ascii_names,
+        "has non-ASCII file names"
     );
     let sjis_decoder = <dyn filename_decoder::IDecoder>::from_encoding_name("sjis").ok_or(
         anyhow::anyhow!("`sjis` is not suitable encoding name for `IDecoder::from_encoding_name`"),
@@ -229,19 +232,19 @@ fn aes256_convert_test() -> anyhow::Result<()> {
         .get(0)
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
-    assert_eq!(
-        name_entry.is_encoding_explicit, false,
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ImplicitNonASCII
+        ),
         "file name is implicitly encoded"
     );
 
     before.convert_central_directory_file_names(&*sjis_decoder);
 
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllExplicitUTF8
-        ),
-        "file name encoding turned to be AllExplicitUTF8"
+        before.diagnose_file_name_encoding().is_universal_archive(),
+        "file name encoding turned to be universal"
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
@@ -251,9 +254,12 @@ fn aes256_convert_test() -> anyhow::Result<()> {
         name_entry.name, "テスト.txt",
         "file name is still `テスト.txt`"
     );
-    assert_eq!(
-        name_entry.is_encoding_explicit, true,
-        "file name turned to be explicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ExplicitRegularUTF8
+        ),
+        "file name turned to be explicit UTF-8"
     );
 
     if which::which("7z").is_ok() {
@@ -273,16 +279,24 @@ fn aes256_convert_test() -> anyhow::Result<()> {
 
 #[test]
 fn macos_finder_emulate_test() -> anyhow::Result<()> {
-    use zip_structs;
     static FILE_NAME: &str = "ほげふがぴよ.txt";
     let mut before = InputZIPArchive::new(open_bufreader("tests/assets/mac_finder_emulate.zip")?)?;
     before.check_unsupported_zip_type()?;
     assert!(
-        matches!(
-            before.check_file_name_encoding(),
-            ZipFileEncodingType::AllExplicitUTF8
-        ),
-        "file name encoding == AllExplicitUTF8"
+        !before
+            .diagnose_file_name_encoding()
+            .has_implicit_non_ascii_names,
+        "does not have implicit non-ASCII file names"
+    );
+    assert!(
+        before
+            .diagnose_file_name_encoding()
+            .has_non_nfc_explicit_utf8_names,
+        "has irregular UTF-8 encoded file names"
+    );
+    assert!(
+        !before.diagnose_file_name_encoding().is_universal_archive(),
+        "not universal archive"
     );
     let decoder = <dyn IDecoder>::utf8();
     let names_list = before.get_file_names_list(&*decoder);
@@ -293,30 +307,37 @@ fn macos_finder_emulate_test() -> anyhow::Result<()> {
         name_entry.name, FILE_NAME,
         "file name is `ほげふがぴよ.txt` (NFC)"
     );
-    assert_eq!(
-        name_entry.is_encoding_explicit, true,
-        "file name is explicitly encoded"
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ExplicitIrregularUTF8
+        ),
+        "file name is explicitly irregular UTF-8"
     );
 
     let mut dump = Cursor::new(Vec::<u8>::new());
     before.convert_central_directory_file_names(&*decoder);
     before.output_archive_with_central_directory_file_names(&mut dump)?;
     dump.seek(SeekFrom::Start(0))?;
-    let after_eocd = zip_structs::zip_eocd::ZipEOCD::from_reader(&mut dump)?;
-    let after_cd_list =
-        zip_structs::zip_central_directory::ZipCDEntry::all_from_eocd(&mut dump, &after_eocd)?;
-    let after_cd = after_cd_list.get(0).ok_or(anyhow::anyhow!(
-        "No central directorie is found in exported ZIP archive"
-    ))?;
-    assert_eq!(
-        &after_cd.file_name_raw,
-        FILE_NAME.as_bytes(),
-        "Exported file name is encoded in NFC (data)"
+    let after = InputZIPArchive::new(dump)?;
+    assert!(
+        after.diagnose_file_name_encoding().is_universal_archive(),
+        "archive turned to be universal"
     );
+    let names_list = before.get_file_names_list(&*decoder);
+    let name_entry = names_list
+        .get(0)
+        .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(
-        after_cd.file_name_length as usize,
-        FILE_NAME.len(),
-        "Exported file name is encoded in NFC (size)"
+        name_entry.name, FILE_NAME,
+        "file name is `ほげふがぴよ.txt` (NFC)"
+    );
+    assert!(
+        matches!(
+            name_entry.encoding_type,
+            FileNameEncodingType::ExplicitRegularUTF8
+        ),
+        "file name turned to be regular UTF-8"
     );
     Ok(())
 }
