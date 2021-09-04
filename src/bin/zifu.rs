@@ -1,5 +1,4 @@
 use ansi_term::ANSIGenericString;
-use ansi_term::Color::{Green, Red};
 use anyhow::anyhow;
 use clap::{crate_authors, crate_description, crate_version, AppSettings, Clap};
 use filename_decoder::IDecoder;
@@ -61,6 +60,18 @@ pub fn print_status_message(diagnosis: &FileNamesDiagnosis) {
         .paint(diagnosis.get_status_note())
     );
 }
+
+fn print_you_do_not_have_to_apply_this_tool(diagnosis: &FileNamesDiagnosis) {
+    use ansi_term::Colour::*;
+    eprintln!(
+        "{}  {}\n{}  {}",
+        prepare_for_non_tty(Green.bold()).paint(diagnosis.get_status_primary_message()),
+        prepare_for_non_tty(Green.bold()).paint(diagnosis.get_status_note()),
+        prepare_for_non_tty(Green.bold()).paint("You do not have to apply this tool."),
+        prepare_for_non_tty(Yellow.bold()).paint("Existing.")
+    );
+}
+
 /// Decodes and prints file names in central directories to stdout
 ///
 /// # Arguments
@@ -69,6 +80,7 @@ pub fn print_status_message(diagnosis: &FileNamesDiagnosis) {
 /// * `utf8_decoder` - UTF-8 decoder (used when explicitly encoded in UTF-8)
 /// * `legacy_decoder` - Legacy charset decoder (used otherwise)
 fn list_names_in_archive(fie_name_entries: &[FileNameEntry], legacy_decoder: &dyn IDecoder) {
+    use ansi_term::Colour::*;
     use FileNameEncodingType::*;
     lazy_static! {
         static ref REGULAR_UTF8: ANSIGenericString<'static, str> =
@@ -157,6 +169,12 @@ struct CLIOptions {
     utf8: bool,
     #[clap(short, long, about = "Don't confirm")]
     yes: bool,
+    #[clap(
+        short,
+        long,
+        about = "Try to convert even if we don't have to apply this tool."
+    )]
+    force: bool,
 }
 
 impl CLIOptions {
@@ -223,6 +241,14 @@ fn main() -> anyhow::Result<()> {
             &input_zip_file.get_file_names_list(guessed_encoder),
             guessed_encoder,
         );
+        if !cli_options.force
+            && input_zip_file
+                .diagnose_file_name_encoding()
+                .is_universal_archive()
+        {
+            print_you_do_not_have_to_apply_this_tool(&input_zip_file.diagnose_file_name_encoding());
+            std::process::exit(2);
+        }
 
         if behavior_flags.ask_user {
             eprint!("Are these file names correct? [Y/n]: ");
@@ -230,6 +256,13 @@ fn main() -> anyhow::Result<()> {
                 std::process::exit(1);
             }
         }
+    } else if !cli_options.force
+        && input_zip_file
+            .diagnose_file_name_encoding()
+            .is_universal_archive()
+    {
+        print_you_do_not_have_to_apply_this_tool(&input_zip_file.diagnose_file_name_encoding());
+        std::process::exit(2);
     }
     let output_zip_file_str = cli_options
         .output
