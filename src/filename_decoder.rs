@@ -22,6 +22,13 @@ pub trait IDecoder {
     ///
     /// * `input` - sequence of bytes that may represent a string
     fn to_string_lossy(&self, input: &[u8]) -> String;
+    /// Returns `true` if `input` is valid sequence for encoding
+    ///
+    /// # Arguments
+    /// * `input` - sequence of bytes that may represent a string
+    fn can_decode(&self, input: &[u8]) -> bool {
+        self.to_string_lossless(input).is_some()
+    }
     /// Returns the name of the encoding that the decoder uses
     fn encoding_name(&self) -> &str;
 }
@@ -61,6 +68,9 @@ impl IDecoder for UTF8NFCDecoder {
     fn to_string_lossy(&self, input: &[u8]) -> String {
         return compose_from_hfs_nfd(&String::from_utf8_lossy(input));
     }
+    fn can_decode(&self, input: &[u8]) -> bool {
+        return std::str::from_utf8(input).is_ok();
+    }
     fn encoding_name(&self) -> &str {
         return "UTF-8";
     }
@@ -79,6 +89,9 @@ impl IDecoder for ASCIIDecoder {
             .iter()
             .map(|c| if c.is_ascii() { *c as char } else { '\u{FFFD}' })
             .collect();
+    }
+    fn can_decode(&self, input: &[u8]) -> bool {
+        return input.iter().all(|c| c.is_ascii());
     }
     fn encoding_name(&self) -> &str {
         return "ASCII";
@@ -122,6 +135,9 @@ impl IDecoder for LegacyEncodingDecoder {
     }
     fn encoding_name(&self) -> &str {
         return self.decoder.name();
+    }
+    fn can_decode(&self, input: &[u8]) -> bool {
+        !self.decoder.decode(input).2
     }
 }
 
@@ -196,7 +212,7 @@ where
         let decoder = decoders[i];
         if strings
             .into_iter()
-            .all(|subject| decoder.to_string_lossless(subject.as_ref()) != None)
+            .all(|subject| decoder.can_decode(subject.as_ref()))
         {
             return Some(i);
         }

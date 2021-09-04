@@ -131,11 +131,7 @@ where
                 .cd_entries
                 .iter()
                 .filter(|cd| !cd.is_encoded_in_utf8())
-                .any(|cd| {
-                    ASCII_DECODER
-                        .to_string_lossless(&cd.file_name_raw)
-                        .is_none()
-                }),
+                .any(|cd| !ASCII_DECODER.can_decode(&cd.file_name_raw)),
             has_non_nfc_explicit_utf8_names: self
                 .cd_entries
                 .iter()
