@@ -22,10 +22,10 @@ This tool automatically detects the encoding of the files in the ZIP archive and
 
 [dependencies]
 ansi_term = "0.12.1"
-clap = "3.0.0-beta.2"
+clap = "3.0.0-beta.4"
 byteorder = "1.4.3"
 anyhow = "1.0.43"
-thiserror = "1.0.26"
+thiserror = "1.0.28"
 encoding_rs = "0.8.28"
 bytesize = "1.1.0"
 locale_config = "0.3.0"
