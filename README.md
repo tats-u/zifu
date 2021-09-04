@@ -10,6 +10,22 @@ Have you ever received zip files from other OS users and when you decompressed t
 
 This tool checks if file names in zip archives can be decompressed without garbling on all operating systems and languages (i.e. explicitly encoded in UTF-8) and repairs them if not.
 
+## Unicodeの正規化について / For Unicode Normalization
+
+v0.6.0から、一般的なUnicode正規化をされていないUTF-8でエンコーディングされたファイル名を検知・修正するようになりました。  
+This tool detects and corrects file names that are encoded in UTF-8 with uncommon Unicode normalizations from the version 0.6.0.
+
+macOSのFinderで作成したZIPファイルは、HFS+独自のUnicode正規化したUTF-8でファイル名をエンコードしています。これをWindows・Linux上で解凍してできたファイルは、以下のような不都合を起こしえます。  
+ZIP files created by Finder in macOS contains file names encoded in UTF-8 with the HFS+-specific Unicode normalization.  The files created by extracting them can cause the following inconveniences:
+
+- 一見同名なファイルが複数できてしまう（通常のUnicode正規化をしたファイルと排他しない）  
+  Pairs of files that appear to have the same name appear.  They are not treated as duplicated.
+- コマンドラインやGUIのテキストボックス等でファイル名・パスを直打ちしても引っかからない  
+  You cannot select them by typing their names or paths in CLI or textboxes in GUI.
+
+そのため、（WindowsやLinuxで）一般的な正規化形式になっていないファイル名は、例えUTF-8であることが明示されていたとしても、「ほとんどの環境でファイル名が正しく取り扱われる」とはみなしません。暗黙的な非ASCIIエンコーディングと同様、本ツールでの修正対象とされるべきです。  
+Therefore, file names that are not normalized in the common way (in Windows and Linux) should not treated as “dealt with in the most environments,” and c even if it is explicitly specified that they are encoded in UTF-8.  They should be corrected by this tool as with those encoded in implicit non-ASCII encodings.
+
 ## インストール / How to install
 
 ## バイナリをダウンロード / Download a binary
