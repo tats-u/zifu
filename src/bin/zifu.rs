@@ -311,6 +311,7 @@ mod tests {
         assert_eq!(cli_options.utf8, true);
         assert_eq!(cli_options.check, false);
         assert_eq!(cli_options.list, true);
+        assert_eq!(cli_options.force, false);
     }
 
     #[test]
@@ -335,6 +336,7 @@ mod tests {
         assert_eq!(cli_options.utf8, false);
         assert_eq!(cli_options.check, true);
         assert_eq!(cli_options.list, false);
+        assert_eq!(cli_options.force, false);
     }
 
     #[test]
@@ -358,5 +360,31 @@ mod tests {
         assert_eq!(cli_options.utf8, false);
         assert_eq!(cli_options.check, false);
         assert_eq!(cli_options.list, false);
+        assert_eq!(cli_options.force, false);
+    }
+
+    #[test]
+    fn extended_args_parse_test4() {
+        let cli_options = CLIOptions::parse_from(vec![
+            "zifu",
+            "before.zip",
+            "after.zip",
+            "--yes",
+            "-e",
+            "gbk",
+            "-f",
+        ]);
+        let global_flags = cli_options.to_behavior_flags();
+
+        assert_eq!(global_flags.ask_user, false);
+        assert_eq!(global_flags.verbose, true);
+
+        assert_eq!(cli_options.input, "before.zip");
+        assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
+        assert_eq!(cli_options.encoding.as_deref(), Some("gbk"));
+        assert_eq!(cli_options.utf8, false);
+        assert_eq!(cli_options.check, false);
+        assert_eq!(cli_options.list, false);
+        assert_eq!(cli_options.force, true);
     }
 }
