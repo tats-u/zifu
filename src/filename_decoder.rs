@@ -1,4 +1,3 @@
-use ansi_term::Color::{Green, Red};
 use codepage::to_encoding;
 use lazy_static::lazy_static;
 use locale_name_code_page::get_codepage;
@@ -25,10 +24,6 @@ pub trait IDecoder {
     fn to_string_lossy(&self, input: &[u8]) -> String;
     /// Returns the name of the encoding that the decoder uses
     fn encoding_name(&self) -> &str;
-    /// Returns enumerates `ansi_term::Color`
-    ///
-    /// Green -> desirable / Red -> undesirable
-    fn color(&self) -> ansi_term::Color;
 }
 
 /// UTF-8 decoder
@@ -69,9 +64,6 @@ impl IDecoder for UTF8NFCDecoder {
     fn encoding_name(&self) -> &str {
         return "UTF-8";
     }
-    fn color(&self) -> ansi_term::Color {
-        return Green;
-    }
 }
 
 impl IDecoder for ASCIIDecoder {
@@ -90,9 +82,6 @@ impl IDecoder for ASCIIDecoder {
     }
     fn encoding_name(&self) -> &str {
         return "ASCII";
-    }
-    fn color(&self) -> ansi_term::Color {
-        return Green;
     }
 }
 
@@ -118,9 +107,6 @@ impl IDecoder for OEMCPDecoder {
     fn encoding_name(&self) -> &str {
         return &self.encoding_str;
     }
-    fn color(&self) -> ansi_term::Color {
-        return Red;
-    }
 }
 
 impl IDecoder for LegacyEncodingDecoder {
@@ -136,9 +122,6 @@ impl IDecoder for LegacyEncodingDecoder {
     }
     fn encoding_name(&self) -> &str {
         return self.decoder.name();
-    }
-    fn color(&self) -> ansi_term::Color {
-        return Red;
     }
 }
 
