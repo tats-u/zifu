@@ -3,6 +3,9 @@
 [![CI (master)](<https://github.com/tats-u/zifu/workflows/CI%20(master)/badge.svg>)](https://github.com/tats-u/zifu/actions/workflows/master.yml)
 [![CI (Release)](<https://github.com/tats-u/zifu/workflows/CI%20(Release)/badge.svg>)](https://github.com/tats-u/zifu/actions/workflows/release.yml)
 [![zifu at crates.io](https://img.shields.io/crates/v/zifu.svg)](https://crates.io/crates/zifu)
+[![zifu at docs.rs](https://docs.rs/zifu/badge.svg)](https://docs.rs/zifu/)
+[![Crates.io downloads](https://img.shields.io/crates/d/zifu)](https://crates.io/crates/zifu)
+[![Crates.io downloads (recent)](https://img.shields.io/crates/dr/zifu)]((https://crates.io/crates/zifu))
 
 他のOSを使っている人からZIPファイルをもらったけど解凍したらファイル名の日本語が思いっきり文字化け、もしくは他のOSのユーザにZIPファイルを送ったら同じく日本語ファイル名が文字化けしてると言われた・・・そんな経験はありませんか？このツールでは、ZIPファイルのファイル名が全てのOS・言語で文字化けすることなく解凍できる (UTF-8で明示的にエンコードされている) かどうかをチェックし、必要に応じて修復します。
 
