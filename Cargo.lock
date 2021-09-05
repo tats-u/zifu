@@ -703,7 +703,7 @@ dependencies = [
  "locale_config",
  "locale_name_code_page",
  "oem_cp",
- "rand_chacha",
+ "rand",
  "regex",
  "rusty-hook",
  "tempfile",

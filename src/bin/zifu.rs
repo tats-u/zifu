@@ -3,8 +3,8 @@ use anyhow::anyhow;
 use clap::{crate_authors, crate_description, crate_version, AppSettings, Clap};
 use filename_decoder::IDecoder;
 use lazy_static::lazy_static;
-use rand_chacha::rand_core::{RngCore, SeedableRng};
-use rand_chacha::ChaChaRng;
+use rand::rngs::StdRng;
+use rand::{RngCore, SeedableRng};
 use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
@@ -272,7 +272,7 @@ fn main() -> anyhow::Result<()> {
 
     let output_zip_file_path: Cow<str> = if cli_options.in_place {
         // Temporary file name in hte same directory (expecting that rename reuses file contents (& inodes))
-        let mut rng = ChaChaRng::from_entropy();
+        let mut rng = StdRng::from_entropy();
         // I do not know the signal handling to remove the temporary file when interrupted
         Cow::from(format!("{}.{:016x}.tmp", cli_options.input, rng.next_u64()))
     } else {
