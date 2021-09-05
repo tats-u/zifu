@@ -3,6 +3,9 @@ use anyhow::anyhow;
 use clap::{crate_authors, crate_description, crate_version, AppSettings, Clap};
 use filename_decoder::IDecoder;
 use lazy_static::lazy_static;
+use rand_chacha::rand_core::{RngCore, SeedableRng};
+use rand_chacha::ChaChaRng;
+use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::vec;
@@ -175,6 +178,8 @@ struct CLIOptions {
         about = "Try to convert even if we don't have to apply this tool."
     )]
     force: bool,
+    #[clap(short, long, about = "Replace the archive")]
+    in_place: bool,
 }
 
 impl CLIOptions {
@@ -264,19 +269,36 @@ fn main() -> anyhow::Result<()> {
         print_you_do_not_have_to_apply_this_tool(&input_zip_file.diagnose_file_name_encoding());
         std::process::exit(2);
     }
-    let output_zip_file_str = cli_options
-        .output
-        .as_ref()
-        .ok_or(InvalidArgument::NoArgument {
-            arg_name: "output".to_string(),
-        })?;
-    if &(cli_options.input) == output_zip_file_str {
-        return Err(InvalidArgument::SameInputOutput.into());
+
+    let output_zip_file_path: Cow<str> = if cli_options.in_place {
+        // Temporary file name in hte same directory (expecting that rename reuses file contents (& inodes))
+        let mut rng = ChaChaRng::from_entropy();
+        // I do not know the signal handling to remove the temporary file when interrupted
+        Cow::from(format!("{}.{:016x}.tmp", cli_options.input, rng.next_u64()))
+    } else {
+        let output_zip_file_str =
+            cli_options
+                .output
+                .as_ref()
+                .ok_or(InvalidArgument::NoArgument {
+                    arg_name: "output".to_string(),
+                })?;
+        if &(cli_options.input) == output_zip_file_str {
+            return Err(InvalidArgument::SameInputOutput.into());
+        }
+        Cow::from(output_zip_file_str)
+    };
+    input_zip_file.convert_central_directory_file_names(guessed_encoder);
+    let mut output_zip_file = BufWriter::new(File::create(output_zip_file_path.as_ref())?);
+    input_zip_file.output_archive_with_central_directory_file_names(&mut output_zip_file)?;
+    if cli_options.in_place {
+        // Make files closed
+        drop(output_zip_file);
+        drop(input_zip_file);
+        std::fs::remove_file(&cli_options.input)?;
+        std::fs::rename(output_zip_file_path.as_ref(), &cli_options.input)?;
     }
 
-    input_zip_file.convert_central_directory_file_names(guessed_encoder);
-    let mut output_zip_file = BufWriter::new(File::create(output_zip_file_str)?);
-    input_zip_file.output_archive_with_central_directory_file_names(&mut output_zip_file)?;
     return Ok(());
 }
 

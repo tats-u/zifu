@@ -61,6 +61,12 @@ ZIPファイルを修復するには、次のコマンドを入力します。
 zifu <ZIPファイルのパス> <出力先のパス>
 ```
 
+上書きしたい場合は、代わりに次のコマンドを入力します。
+
+```text
+zifu -i <ZIPファイルのパス>
+```
+
 ZIPファイルが明示的にUTF-8でエンコードされているかどうかをチェックするには、次のコマンドを入力します。
 
 ```text
@@ -87,6 +93,12 @@ To repair a ZIP file, run the following command:
 
 ```text
 zifu <Path to garbled ZIP file> <Path to output>
+```
+
+To overwrite the ZIP file, use the following command instead:
+
+```text
+zifu -i <Path to the ZIP file>
 ```
 
 To check if a ZIP file is explicitly encoded in UTF-8, run the following command:

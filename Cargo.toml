@@ -1,6 +1,6 @@
 [package]
 name = "zifu"
-version = "0.6.1-beta"
+version = "0.7.0-beta"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
 license = "MIT"
@@ -37,6 +37,7 @@ locale_name_code_page = "<2"
 lazy_static = "1.4.0"
 zip_structs = "^0.2"
 atty = "^0.2"
+rand_chacha = "0.3.1"
 
 [dev-dependencies]
 rusty-hook = "^0.11.2"
