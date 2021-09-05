@@ -334,6 +334,7 @@ mod tests {
         assert_eq!(cli_options.check, false);
         assert_eq!(cli_options.list, true);
         assert_eq!(cli_options.force, false);
+        assert_eq!(cli_options.in_place, false);
     }
 
     #[test]
@@ -359,6 +360,7 @@ mod tests {
         assert_eq!(cli_options.check, true);
         assert_eq!(cli_options.list, false);
         assert_eq!(cli_options.force, false);
+        assert_eq!(cli_options.in_place, false);
     }
 
     #[test]
@@ -383,6 +385,7 @@ mod tests {
         assert_eq!(cli_options.check, false);
         assert_eq!(cli_options.list, false);
         assert_eq!(cli_options.force, false);
+        assert_eq!(cli_options.in_place, false);
     }
 
     #[test]
@@ -408,5 +411,19 @@ mod tests {
         assert_eq!(cli_options.check, false);
         assert_eq!(cli_options.list, false);
         assert_eq!(cli_options.force, true);
+        assert_eq!(cli_options.in_place, false);
+    }
+
+    #[test]
+    fn extended_args_parse_test5() {
+        let cli_options = CLIOptions::parse_from(vec!["zifu", "before.zip", "-i"]);
+        assert_eq!(cli_options.input, "before.zip");
+        assert_eq!(cli_options.output.as_deref(), None);
+        assert_eq!(cli_options.encoding.as_deref(), None);
+        assert_eq!(cli_options.utf8, false);
+        assert_eq!(cli_options.check, false);
+        assert_eq!(cli_options.list, false);
+        assert_eq!(cli_options.force, false);
+        assert_eq!(cli_options.in_place, true);
     }
 }
