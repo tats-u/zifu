@@ -9,8 +9,8 @@ use std::borrow::Cow;
 use std::fs::File;
 use std::io::{BufReader, BufWriter};
 use std::vec;
-use zifu::InputZIPArchive;
-use zifu::{filename_decoder, FileNameEncodingType, FileNameEntry, FileNamesDiagnosis};
+use zifu_core::InputZIPArchive;
+use zifu_core::{filename_decoder, FileNameEncodingType, FileNameEntry, FileNamesDiagnosis};
 
 #[derive(thiserror::Error, Debug)]
 enum InvalidArgument {

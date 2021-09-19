@@ -1,6 +1,6 @@
 [package]
 name = "zifu"
-version = "0.7.0"
+version = "1.0.0-beta"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
 license = "MIT"
@@ -23,23 +23,12 @@ This tool automatically detects the encoding of the files in the ZIP archive and
 [dependencies]
 ansi_term = "0.12.1"
 clap = "3.0.0-beta.4"
-byteorder = "1.4.3"
 anyhow = "1.0.43"
 thiserror = "1.0.28"
-encoding_rs = "0.8.28"
-bytesize = "1.1.0"
-locale_config = "0.3.0"
-codepage = "0.1.1"
-regex = "1"
-hfs_nfd = "2"
-oem_cp = "1.1.0"
-locale_name_code_page = "<2"
 lazy_static = "1.4.0"
-zip_structs = "^0.2"
 atty = "^0.2"
 rand = {version = "0.8.4", features = ["std_rng"]}
+zifu_core = "0.1"
 
 [dev-dependencies]
 rusty-hook = "^0.11.2"
-which = "4.2.2"
-tempfile = "3.2.0"
