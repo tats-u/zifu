@@ -17,11 +17,25 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
+          - macos-11
     steps:
     - uses: actions/checkout@v2
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
+    - name: set triplet
+      id: setup_vars
+      run: |
+        TRIPLET=$(rustup default | sed -E 's/^[^-]+-//;s/ .*$//')
+        if [[ -z $TRIPLET ]]; then
+          echo '$TRIPLET was not properly set' >&2
+          exit 1
+        fi
+        echo ::set-output name=version::${GITHUB_REF#refs/tags/}
+        echo ::set-output name=target_triplet::$TRIPLET
+        echo ::set-output name=target_arch::${TRIPLET%%-*}
+        echo ::set-output name=target_short::${TRIPLET%%-*}-`tr [A-Z] [a-z] <<< ${{ runner.os }}`
+      shell: bash
     - uses: actions/cache@v2
       with:
         path: |
@@ -42,7 +56,7 @@ jobs:
       run: |
         mkdir ${{ runner.temp }}/zifu
         Copy-Item "target/release/zifu$(if($IsWindows) { '.exe' } else { '' })","README.md","LICENSE.txt" ${{ runner.temp }}/zifu
-        Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ runner.os }}.zip
+        Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-${{ steps.setup_vars.outputs.target_short }}.zip
       shell: pwsh
     - name: Install cargo deb
       uses: actions-rs/cargo@v1
@@ -58,7 +72,7 @@ jobs:
     - name: Upload ZIP archive as artifact
       uses: actions/upload-artifact@v2
       with:
-        name: zip-archive-${{ runner.os }}
+        name: zip-archive-${{ steps.setup_vars.outputs.target_short }}
         path: ${{ runner.temp }}/zifu*.zip
     - name: Upload .deb package as artifact
       uses: actions/upload-artifact@v2
@@ -66,69 +80,149 @@ jobs:
         name: deb-package
         path: target/debian/*.deb
       if: runner.os == 'Linux'
+    - name: Upload binary to create universal binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: binary-${{ steps.setup_vars.outputs.target_arch }}
+        path: target/release/zifu
+      if: runner.os == 'macOS'
+  cross:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-11
+        arch:
+          - aarch64
+        include:
+          - os: windows-latest
+            arch: i686
+    needs:
+      - build
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+    - name: set triplet
+      id: setup_vars
+      run: |
+        TRIPLET=$(rustup default | sed -E 's/^[^-]+-//;s/ .*$//')
+        if [[ -z $TRIPLET ]] ; then
+          echo '$TRIPLET was not properly set' >&2
+          exit 1
+        fi
+        echo ::set-output name=version::${GITHUB_REF#refs/tags/}
+        echo ::set-output name=target_triplet::${{ matrix.arch }}-${TRIPLET#*-}
+        echo ::set-output name=target_short::${{ matrix.arch }}-`tr [A-Z] [a-z] <<< ${{ runner.os }}`
+        rustup target add ${{ matrix.arch }}-${TRIPLET#*-}
+      shell: bash
+    - name: Install GCC crosscompiler & set up cross compile
+      run: |
+        case ${{ matrix.arch }} in
+          *)
+            PACKAGE=gcc-${{ matrix.arch }}-linux-gnu
+            ;;
+        esac
+        sudo apt-get install -y $PACKAGE
+        cat >> ~/.cargo/config << EOF
+        [target.${{ matrix.arch }}-unknown-linux-gnu]
+        linker = "${{ matrix.arch }}-linux-gnu-gcc"
+        EOF
+      if: runner.os =='Linux'
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/release
+          target/debug
+          target/.rustc_info.json
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - uses: actions/cache@v2
+      with:
+        path: |
+          target/${{ steps.setup_vars.outputs.target_triplet }}/debug
+          target/${{ steps.setup_vars.outputs.target_triplet }}/release
+          target/${{ steps.setup_vars.outputs.target_triplet }}/CACHEDIR.TAG
+        key: cross-${{ steps.setup_vars.outputs.target_short }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Release build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release --all-features --target=${{ steps.setup_vars.outputs.target_triplet }}
+    - name: Create archive
+      run: |
+        mkdir ${{ runner.temp }}/zifu
+        Copy-Item "target/${{ steps.setup_vars.outputs.target_triplet }}/release/zifu$(if($IsWindows) { '.exe' } else { '' })","README.md","LICENSE.txt" ${{ runner.temp }}/zifu
+        Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-${{ steps.setup_vars.outputs.target_short }}.zip
+      shell: pwsh
+    - name: Upload ZIP archive as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: zip-archive-${{ steps.setup_vars.outputs.target_short }}
+        path: ${{ runner.temp }}/zifu*.zip
+    - name: Upload binary to create universal binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: binary-${{ matrix.arch }}
+        path: target//${{ steps.setup_vars.outputs.target_triplet }}/release/zifu
+      if: runner.os == 'macOS'
+  macos-universal:
+    runs-on: macos-11
+    needs:
+      - build
+      - cross
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/download-artifact@v2
+        with:
+          path: ${{ runner.temp }}
+      - name: set triplet
+        id: setup_vars
+        run: |
+          echo ::set-output name=version::${GITHUB_REF#refs/tags/}
+        shell: bash
+      - name: Generate universal library
+        run: |
+          mkdir ${{ runner.temp }}/zifu
+          lipo -create ${{ runner.temp }}/binary-*/zifu -output  ${{ runner.temp }}/zifu/zifu
+          cp README.md LICENSE.txt ${{ runner.temp }}/zifu
+        shell: bash
+      - name: Create ZIP archive
+        run: |
+          Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-universal-macos.zip
+        shell: pwsh
+      - name: Upload ZIP archive as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: zip-archive-universal-macos
+          path: ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-universal-macos.zip
   release:
     runs-on: ubuntu-latest
     needs:
       - build
+      - cross
+      - macos-universal
     steps:
     - uses: actions/checkout@v2
     - uses: actions/download-artifact@v2
       with:
         path: ${{ runner.temp }}
-    - name: Create a Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        # The name of the tag. This should come from the webhook payload, `github.GITHUB_REF` when a user pushes a new tag
-        tag_name: ${{ github.ref }}
-        # The name of the release. For example, `Release v1.0.1`
-        release_name: Release ${{ github.ref }}
     - name: Get the version
       id: get_version
       run: |
         echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
         echo ::set-output name=DEB_NAME::$(basename $(ls ${{ runner.temp }}/deb-package/*.deb | tail -n 1))
-    - name: Upload a Release Asset (Windows ZIP)
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      uses: actions/upload-release-asset@v1
+    - name: Upload a Release Asset (ZIP)
+      uses: softprops/action-gh-release@v1
       with:
-        # The URL for uploading assets to the release
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        # The path to the asset you want to upload
-        asset_path: ${{ runner.temp }}/zip-archive-Windows/zifu-Windows.zip
-        # The name of the asset you want to upload
-        asset_name: zifu-${{ steps.get_version.outputs.VERSION }}-windows.zip
-        # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
-        asset_content_type: application/zip
-    - name: Upload a Release Asset (Linux ZIP)
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      uses: actions/upload-release-asset@v1
-      with:
-        # The URL for uploading assets to the release
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        # The path to the asset you want to upload
-        asset_path: ${{ runner.temp }}/zip-archive-Linux/zifu-Linux.zip
-        # The name of the asset you want to upload
-        asset_name: zifu-${{ steps.get_version.outputs.VERSION }}-linux.zip
-        # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
-        asset_content_type: application/zip
-    - name: Upload a Release Asset (Ubuntu deb)
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      uses: actions/upload-release-asset@v1
-      with:
-        # The URL for uploading assets to the release
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        # The path to the asset you want to upload
-        asset_path: ${{ runner.temp }}/deb-package/${{ steps.get_version.outputs.DEB_NAME }}
-        # The name of the asset you want to upload
-        asset_name: ${{ steps.get_version.outputs.DEB_NAME }}
-        # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
-        asset_content_type: application/vnd.debian.binary-package
+        name: Release ${{ steps.get_version.outputs.VERSION }}
+        files: |
+          ${{ runner.temp }}/zip-archive-*/zifu-*.zip
+          ${{ runner.temp }}/deb-package/${{ steps.get_version.outputs.DEB_NAME }}
     - uses: actions/cache@v2
       with:
         path: |
