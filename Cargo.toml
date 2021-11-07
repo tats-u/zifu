@@ -1,6 +1,6 @@
 [package]
 name = "zifu"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Tatsunori Uchino <tats.u@live.jp>"]
 edition = "2018"
 license = "MIT"
@@ -22,9 +22,9 @@ This tool automatically detects the encoding of the files in the ZIP archive and
 
 [dependencies]
 ansi_term = "0.12.1"
-clap = "3.0.0-beta.4"
-anyhow = "1.0.44"
-thiserror = "1.0.29"
+clap = "3.0.0-beta.5"
+anyhow = "1.0.45"
+thiserror = "1.0.30"
 lazy_static = "1.4.0"
 atty = "^0.2"
 rand = {version = "0.8.4", features = ["std_rng"]}
