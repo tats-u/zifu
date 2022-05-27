@@ -132,52 +132,57 @@ fn ask_default_yes() -> Result<bool, std::io::Error> {
 }
 
 #[derive(Parser)]
-#[clap(name = "ZIP File Names to UTF-8 (ZIFU)", version = crate_version!(), author = crate_authors!(), about = crate_description!())]
+#[clap(
+    name = "ZIP File Names to UTF-8 (ZIFU)",
+    version = crate_version!(),
+    author = crate_authors!(),
+    override_help = crate_description!()
+)]
 struct CLIOptions {
     #[clap(
-        about = "Path to the ZIP file where you want to change the encoding of the file name to UTF-8"
+        help = "Path to the ZIP file where you want to change the encoding of the file name to UTF-8"
     )]
     input: String,
-    #[clap(about = "Path to output")]
+    #[clap(help = "Path to output")]
     output: Option<String>,
     #[clap(
         short,
         long,
-        about = "Finds out if its file names are encoded in UTF-8."
+        help = "Finds out if its file names are encoded in UTF-8."
     )]
     check: bool,
     #[clap(
         short,
         long,
-        about = "Displays the list of file names in the ZIP archive."
+        help = "Displays the list of file names in the ZIP archive."
     )]
     list: bool,
-    #[clap(short, long, about = "Don't show any messages. (implies -y)")]
+    #[clap(short, long, help = "Don't show any messages. (implies -y)")]
     silent: bool,
-    #[clap(short, long, about = "Don't show any messages. (implies -y)")]
+    #[clap(short, long, help = "Don't show any messages. (implies -y)")]
     quiet: bool,
     #[clap(
         short,
         long,
         value_name = "ENCODING",
-        about = "Specifies the encoding of file names in the ZIP archive."
+        help = "Specifies the encoding of file names in the ZIP archive."
     )]
     encoding: Option<String>,
     #[clap(
         short,
         long,
-        about = "Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)"
+        help = "Treats the encoding of the ZIP archive as UTF-8 first. (Default: try legacy encoding first)"
     )]
     utf8: bool,
-    #[clap(short, long, about = "Don't confirm")]
+    #[clap(short, long, help = "Don't confirm")]
     yes: bool,
     #[clap(
         short,
         long,
-        about = "Try to convert even if we don't have to apply this tool."
+        help = "Try to convert even if we don't have to apply this tool."
     )]
     force: bool,
-    #[clap(short, long, about = "Replace the archive")]
+    #[clap(short, long, help = "Replace the archive")]
     in_place: bool,
 }
 
