@@ -2,7 +2,7 @@ use ansi_term::ANSIGenericString;
 use anyhow::anyhow;
 use clap::Parser;
 use filename_decoder::IDecoder;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 use std::borrow::Cow;
@@ -85,16 +85,14 @@ fn print_you_do_not_have_to_apply_this_tool(diagnosis: &FileNamesDiagnosis) {
 fn list_names_in_archive(fie_name_entries: &[FileNameEntry], legacy_decoder: &dyn IDecoder) {
     use ansi_term::Colour::*;
     use FileNameEncodingType::*;
-    lazy_static! {
-        static ref REGULAR_UTF8: ANSIGenericString<'static, str> =
-            prepare_for_non_tty(Green.bold()).paint("REGULAR UTF-8");
-        static ref IRREGULAR_UTF8: ANSIGenericString<'static, str> =
-            prepare_for_non_tty(Red.bold()).paint("IRREGULAR UTF-8");
-        static ref ASCII_GREEN: ANSIGenericString<'static, str> =
-            prepare_for_non_tty(Green.bold()).paint("ASCII");
-        static ref GUESSED: ANSIGenericString<'static, str> =
-            prepare_for_non_tty(Red.bold()).paint("GUESSED");
-    }
+    static REGULAR_UTF8: Lazy<ANSIGenericString<'static, str>> =
+        Lazy::new(|| prepare_for_non_tty(Green.bold()).paint("REGULAR UTF-8"));
+    static IRREGULAR_UTF8: Lazy<ANSIGenericString<'static, str>> =
+        Lazy::new(|| prepare_for_non_tty(Red.bold()).paint("IRREGULAR UTF-8"));
+    static ASCII_GREEN: Lazy<ANSIGenericString<'static, str>> =
+        Lazy::new(|| prepare_for_non_tty(Green.bold()).paint("ASCII"));
+    static GUESSED: Lazy<ANSIGenericString<'static, str>> =
+        Lazy::new(|| prepare_for_non_tty(Red.bold()).paint("GUESSED"));
     for entry in fie_name_entries {
         match entry.encoding_type {
             ExplicitRegularUTF8 => println!("{}:{}", &*REGULAR_UTF8, &entry.name),
