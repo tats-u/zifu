@@ -1,6 +1,6 @@
 use ansi_term::ANSIGenericString;
 use anyhow::anyhow;
-use clap::{crate_authors, crate_description, crate_version, Parser};
+use clap::Parser;
 use filename_decoder::IDecoder;
 use lazy_static::lazy_static;
 use rand::rngs::StdRng;
@@ -131,12 +131,13 @@ fn ask_default_yes() -> Result<bool, std::io::Error> {
     return Ok(process_answer_default_yes(&ask_result));
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[clap(
     name = "ZIP File Names to UTF-8 (ZIFU)",
-    version = crate_version!(),
-    author = crate_authors!(),
-    override_help = crate_description!()
+    version,
+    author,
+    about,
+    // override_help = crate_description!()
 )]
 struct CLIOptions {
     #[clap(

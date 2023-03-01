@@ -22,7 +22,7 @@ This tool automatically detects the encoding of the files in the ZIP archive and
 
 [dependencies]
 ansi_term = "0.12.1"
-clap = { version = "3.0.0", features = ["cargo", "derive"] }
+clap = { version = "4.1.8", features = ["cargo", "derive"] }
 anyhow = "1.0.45"
 thiserror = "1.0.30"
 lazy_static = "1.4.0"
