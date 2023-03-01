@@ -23,11 +23,11 @@ This tool automatically detects the encoding of the files in the ZIP archive and
 [dependencies]
 ansi_term = "0.12.1"
 clap = { version = "4.1.8", features = ["cargo", "derive"] }
-anyhow = "1.0.45"
-thiserror = "1.0.30"
+anyhow = "1.0.69"
+thiserror = "1.0.38"
 lazy_static = "1.4.0"
 atty = "^0.2"
-rand = {version = "0.8.4", features = ["std_rng"]}
+rand = {version = "0.8.5", features = ["std_rng"]}
 zifu_core = "0.1"
 
 [dev-dependencies]
