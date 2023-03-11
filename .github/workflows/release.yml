@@ -19,8 +19,8 @@ jobs:
           - windows-latest
           - macos-11
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
     - name: set triplet
@@ -36,7 +36,7 @@ jobs:
         echo target_arch=${TRIPLET%%-*} >> $GITHUB_OUTPUT
         echo target_short=${TRIPLET%%-*}-`tr [A-Z] [a-z] <<< ${{ runner.os }}` >> $GITHUB_OUTPUT
       shell: bash
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cargo/registry
@@ -48,10 +48,7 @@ jobs:
     - name: Check format
       run: cargo fmt -- --check -l
     - name: Release build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release --all-features
+      run: cargo build --release --all-features
     - name: Create archive
       run: |
         mkdir ${{ runner.temp }}/zifu
@@ -59,29 +56,24 @@ jobs:
         Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-${{ steps.setup_vars.outputs.target_short }}.zip
       shell: pwsh
     - name: Install cargo deb
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: cargo-deb
+      run: cargo install cargo-deb
       if: runner.os == 'Linux'
     - name: Build .deb package
-      uses: actions-rs/cargo@v1
-      with:
-        command: deb
+      run: cargo deb
       if: runner.os == 'Linux'
     - name: Upload ZIP archive as artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: zip-archive-${{ steps.setup_vars.outputs.target_short }}
         path: ${{ runner.temp }}/zifu*.zip
     - name: Upload .deb package as artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: deb-package
         path: target/debian/*.deb
       if: runner.os == 'Linux'
     - name: Upload binary to create universal binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: binary-${{ steps.setup_vars.outputs.target_arch }}
         path: target/release/zifu
@@ -102,8 +94,8 @@ jobs:
     needs:
       - build
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions-rs/toolchain@v1
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
     - name: set triplet
@@ -132,7 +124,7 @@ jobs:
         linker = "${{ matrix.arch }}-linux-gnu-gcc"
         EOF
       if: runner.os =='Linux'
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cargo/registry
@@ -141,7 +133,7 @@ jobs:
           target/debug
           target/.rustc_info.json
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           target/${{ steps.setup_vars.outputs.target_triplet }}/debug
@@ -149,10 +141,7 @@ jobs:
           target/${{ steps.setup_vars.outputs.target_triplet }}/CACHEDIR.TAG
         key: cross-${{ steps.setup_vars.outputs.target_short }}-cargo-${{ hashFiles('**/Cargo.lock') }}
     - name: Release build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release --all-features --target=${{ steps.setup_vars.outputs.target_triplet }}
+      run: cargo build --release --all-features --target=${{ steps.setup_vars.outputs.target_triplet }}
     - name: Create archive
       run: |
         mkdir ${{ runner.temp }}/zifu
@@ -160,12 +149,12 @@ jobs:
         Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-${{ steps.setup_vars.outputs.target_short }}.zip
       shell: pwsh
     - name: Upload ZIP archive as artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: zip-archive-${{ steps.setup_vars.outputs.target_short }}
         path: ${{ runner.temp }}/zifu*.zip
     - name: Upload binary to create universal binary
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: binary-${{ matrix.arch }}
         path: target//${{ steps.setup_vars.outputs.target_triplet }}/release/zifu
@@ -176,8 +165,8 @@ jobs:
       - build
       - cross
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/download-artifact@v2
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
         with:
           path: ${{ runner.temp }}
       - name: set triplet
@@ -196,7 +185,7 @@ jobs:
           Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-universal-macos.zip
         shell: pwsh
       - name: Upload ZIP archive as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: zip-archive-universal-macos
           path: ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-universal-macos.zip
@@ -207,8 +196,8 @@ jobs:
       - cross
       - macos-universal
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
       with:
         path: ${{ runner.temp }}
     - name: Get the version
@@ -223,7 +212,7 @@ jobs:
         files: |
           ${{ runner.temp }}/zip-archive-*/zifu-*.zip
           ${{ runner.temp }}/deb-package/${{ steps.get_version.outputs.DEB_NAME }}
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: |
           ~/.cargo/registry
@@ -232,11 +221,8 @@ jobs:
           target/debug
           target/.rustc_info.json
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - uses: actions-rs/toolchain@v1
+    - uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
     - name: Upload crate
-      uses: actions-rs/cargo@v1
-      with:
-        command: publish
-        args: --token ${{ secrets.CARGO_TOKEN }}
+      run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
