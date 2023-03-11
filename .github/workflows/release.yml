@@ -31,10 +31,10 @@ jobs:
           echo '$TRIPLET was not properly set' >&2
           exit 1
         fi
-        echo ::set-output name=version::${GITHUB_REF#refs/tags/}
-        echo ::set-output name=target_triplet::$TRIPLET
-        echo ::set-output name=target_arch::${TRIPLET%%-*}
-        echo ::set-output name=target_short::${TRIPLET%%-*}-`tr [A-Z] [a-z] <<< ${{ runner.os }}`
+        echo version=${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
+        echo target_triplet=$TRIPLET >> $GITHUB_OUTPUT
+        echo target_arch=${TRIPLET%%-*} >> $GITHUB_OUTPUT
+        echo target_short=${TRIPLET%%-*}-`tr [A-Z] [a-z] <<< ${{ runner.os }}` >> $GITHUB_OUTPUT
       shell: bash
     - uses: actions/cache@v2
       with:
@@ -114,9 +114,9 @@ jobs:
           echo '$TRIPLET was not properly set' >&2
           exit 1
         fi
-        echo ::set-output name=version::${GITHUB_REF#refs/tags/}
-        echo ::set-output name=target_triplet::${{ matrix.arch }}-${TRIPLET#*-}
-        echo ::set-output name=target_short::${{ matrix.arch }}-`tr [A-Z] [a-z] <<< ${{ runner.os }}`
+        echo version=${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
+        echo target_triplet=${{ matrix.arch }}-${TRIPLET#*-} >> $GITHUB_OUTPUT
+        echo target_short=${{ matrix.arch }}-`tr [A-Z] [a-z] <<< ${{ runner.os }}` >> $GITHUB_OUTPUT
         rustup target add ${{ matrix.arch }}-${TRIPLET#*-}
       shell: bash
     - name: Install GCC crosscompiler & set up cross compile
@@ -183,7 +183,7 @@ jobs:
       - name: set triplet
         id: setup_vars
         run: |
-          echo ::set-output name=version::${GITHUB_REF#refs/tags/}
+          echo version=${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
         shell: bash
       - name: Generate universal library
         run: |
@@ -214,8 +214,8 @@ jobs:
     - name: Get the version
       id: get_version
       run: |
-        echo ::set-output name=VERSION::${GITHUB_REF#refs/tags/}
-        echo ::set-output name=DEB_NAME::$(basename $(ls ${{ runner.temp }}/deb-package/*.deb | tail -n 1))
+        echo VERSION=${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
+        echo DEB_NAME=$(basename $(ls ${{ runner.temp }}/deb-package/*.deb | tail -n 1)) >> $GITHUB_OUTPUT
     - name: Upload a Release Asset (ZIP)
       uses: softprops/action-gh-release@v1
       with:
