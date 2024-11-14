@@ -2,11 +2,11 @@
 
 [![CI (master)](<https://github.com/tats-u/zifu/workflows/CI%20(master)/badge.svg>)](https://github.com/tats-u/zifu/actions/workflows/master.yml)
 [![CI (Release)](<https://github.com/tats-u/zifu/workflows/CI%20(Release)/badge.svg>)](https://github.com/tats-u/zifu/actions/workflows/release.yml)
-[![zifu at crates.io](https://img.shields.io/crates/v/zifu.svg)](https://crates.io/crates/zifu)
+
+- CLI crate (zifu): [![zifu at crates.io](https://img.shields.io/crates/v/zifu.svg)](https://crates.io/crates/zifu)
 [![Crates.io downloads](https://img.shields.io/crates/d/zifu)](https://crates.io/crates/zifu)
 [![Crates.io downloads (recent)](https://img.shields.io/crates/dr/zifu)]((https://crates.io/crates/zifu))
-
-[Public API crate](https://github.com/tats-u/zifu-core/): [![zifu at crates.io](https://img.shields.io/crates/v/zifu_core.svg)](https://crates.io/crates/zifu_core)[![zifu_core at docs.rs](https://docs.rs/zifu_core/badge.svg)](https://docs.rs/zifu_core/)
+- Public API crate (zifu_core): [![zifu at crates.io](https://img.shields.io/crates/v/zifu_core.svg)](https://crates.io/crates/zifu_core)[![zifu_core at docs.rs](https://docs.rs/zifu_core/badge.svg)](https://docs.rs/zifu_core/)
 [![Crates.io downloads](https://img.shields.io/crates/d/zifu_core)](https://crates.io/crates/zifu_core)
 [![Crates.io downloads (recent)](https://img.shields.io/crates/dr/zifu_core)]((https://crates.io/crates/zifu_core))  
 
