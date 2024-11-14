@@ -17,4 +17,4 @@ Refer to the source code of ZIFU CLI.
 
 ## License
 
-The MIT License; see [LICENSE.txt](LICENSE.txt) for details.
+The MIT License; see [LICENSE.txt](../../LICENSE.txt) for details.
