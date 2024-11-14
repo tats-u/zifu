@@ -21,6 +21,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: ZIP check
-      run: ls tests/assets/*.zip | xargs -n 1 7z t -ptest
+      run: ls crates/zifu{,_core}/tests/assets/*.zip | xargs -n 1 7z t -ptest
     - name: Run tests
       run: cargo test --verbose

@@ -1,0 +1,33 @@
+[package]
+name = "zifu"
+version = "1.1.0"
+authors = ["Tatsunori Uchino <tats.u@live.jp>"]
+edition = "2018"
+license = "MIT"
+readme = "../../README.md"
+repository = "https://github.com/tats-u/zifu/"
+description = "Repair corrupted file names in ZIP archives"
+categories = ["command-line-utilities"]
+keywords = ["zip", "archive", "utf-8", "encoding"]
+include = ["src/**/*", "Cargo.toml", "Cargo.lock", "../../README.md", "../../LICENSE.txt"]
+
+[package.metadata.deb]
+extended-description = """
+zifu is a command line tool to fix Windows-dependent encoded filenames of ZIP files.
+
+In general, only ASCII characters are allowed for file names in a ZIP archive. However, uninformed non-English Windows users may include files with names in their native languages. Unfortunately, the ZIP archiver in Windows implicitly encodes the file names in encodings other than UTF-8, so they are garbled when unzipped under Linux.
+This tool automatically detects the encoding of the files in the ZIP archive and explicitly re-encodes them as UTF-8, so that you can unzip them without any garbled characters even with the ZIP archiver bundled in Linux."""
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ansi_term = "0.12.1"
+clap = { version = "4.1.8", features = ["cargo", "derive"] }
+anyhow = "1.0.69"
+thiserror = "1.0.38"
+lazy_static = "1.4.0"
+once_cell = "1.17.1"
+atty = "^0.2"
+rand = {version = "0.8.5", features = ["std_rng"]}
+zifu_core = { version = "0.1", path = "../zifu_core" }
+

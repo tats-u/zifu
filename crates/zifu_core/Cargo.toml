@@ -1,0 +1,33 @@
+[package]
+name = "zifu_core"
+version = "0.1.1"
+authors = ["Tatsunori Uchino <tats.u@live.jp>"]
+edition = "2018"
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tats-u/zifu-core/"
+description = "Core library for zifu (command line tool to fix Windows-dependent encoded filenames of ZIP files)"
+categories = ["data-structures"]
+keywords = ["zip", "archive", "utf-8", "encoding"]
+include = ["src/**/*", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE.txt"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+byteorder = "1.4.3"
+anyhow = "1.0.44"
+encoding_rs = "0.8.28"
+bytesize = "1.1.0"
+locale_config = "0.3.0"
+codepage = "0.1.1"
+regex = "1"
+hfs_nfd = "2"
+oem_cp = "1.1.0"
+locale_name_code_page = "<2"
+lazy_static = "1.4.0"
+zip_structs = "^0.2"
+
+[dev-dependencies]
+rusty-hook = "^0.11.2"
+which = "4.2.2"
+tempfile = "3.2.0"
