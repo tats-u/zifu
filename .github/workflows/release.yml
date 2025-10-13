@@ -87,9 +87,12 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-26
         arch:
           - aarch64
+        # Recent macOS runners are running on ARM64
+        include:
+          - os: macos-26
+            arch: x86_64
     needs:
       - build
     permissions:
