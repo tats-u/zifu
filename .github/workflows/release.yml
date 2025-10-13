@@ -21,7 +21,7 @@ jobs:
     permissions:
       contents: read
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
@@ -38,7 +38,7 @@ jobs:
         echo target_arch=${TRIPLET%%-*} >> $GITHUB_OUTPUT
         echo target_short=${TRIPLET%%-*}-`tr [A-Z] [a-z] <<< ${{ runner.os }}` >> $GITHUB_OUTPUT
       shell: bash
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry
@@ -64,18 +64,18 @@ jobs:
       run: cargo deb
       if: runner.os == 'Linux'
     - name: Upload ZIP archive as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: zip-archive-${{ steps.setup_vars.outputs.target_short }}
         path: ${{ runner.temp }}/zifu*.zip
     - name: Upload .deb package as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: deb-package
         path: target/debian/*.deb
       if: runner.os == 'Linux'
     - name: Upload binary to create universal binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: binary-${{ steps.setup_vars.outputs.target_arch }}
         path: target/release/zifu
@@ -98,7 +98,7 @@ jobs:
     permissions:
       contents: read
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     - uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
@@ -128,7 +128,7 @@ jobs:
         linker = "${{ matrix.arch }}-linux-gnu-gcc"
         EOF
       if: runner.os =='Linux'
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry
@@ -137,7 +137,7 @@ jobs:
           target/debug
           target/.rustc_info.json
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           target/${{ steps.setup_vars.outputs.target_triplet }}/debug
@@ -153,12 +153,12 @@ jobs:
         Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-${{ steps.setup_vars.outputs.target_short }}.zip
       shell: pwsh
     - name: Upload ZIP archive as artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: zip-archive-${{ steps.setup_vars.outputs.target_short }}
         path: ${{ runner.temp }}/zifu*.zip
     - name: Upload binary to create universal binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: binary-${{ matrix.arch }}
         path: target//${{ steps.setup_vars.outputs.target_triplet }}/release/zifu
@@ -171,8 +171,8 @@ jobs:
       - build
       - cross
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
         with:
           path: ${{ runner.temp }}
       - name: set triplet
@@ -191,7 +191,7 @@ jobs:
           Compress-Archive ${{ runner.temp }}/zifu ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-universal-macos.zip
         shell: pwsh
       - name: Upload ZIP archive as artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zip-archive-universal-macos
           path: ${{ runner.temp }}/zifu-${{ steps.setup_vars.outputs.version }}-universal-macos.zip
@@ -204,8 +204,8 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/download-artifact@v3
+    - uses: actions/checkout@v5
+    - uses: actions/download-artifact@v5
       with:
         path: ${{ runner.temp }}
     - name: Get the version
@@ -220,7 +220,7 @@ jobs:
         files: |
           ${{ runner.temp }}/zip-archive-*/zifu-*.zip
           ${{ runner.temp }}/deb-package/${{ steps.get_version.outputs.DEB_NAME }}
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/registry
