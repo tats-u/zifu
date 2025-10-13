@@ -1,5 +1,4 @@
 use ansi_term::ANSIGenericString;
-use ansi_term::Colour::Red;
 use anyhow::anyhow;
 use clap::Parser;
 use filename_decoder::IDecoder;
@@ -109,29 +108,32 @@ fn list_names_in_archive(fie_name_entries: &[FileNameEntry], legacy_decoder: &dy
     }
 }
 
-fn process_answer_default_no(ans: &str) -> bool {
+fn process_answer_text(ans: &str) -> Option<bool> {
     return match ans.chars().next() {
-        Some('y') | Some('Y') => true,
-        None | Some(_) => false,
+        Some('y') | Some('Y') => Some(true),
+        Some('n') | Some('N') => Some(false),
+        None | Some(_) => None,
     };
 }
 
-/// Reads a line from stdin and interprets it as a yes/no answer.
+/// Reads a line from stdin and tries to interpret it as a yes/no answer.
 ///
-/// Returns `Ok(true)` if the line starts with `'y'` or `'Y'`.
-/// Returns `Ok(false)` if the line is empty, starts with any other character,
-/// or cannot be interpreted as a yes answer.
+/// Returns `Ok(Some(true))` if the line starts with `y` or `Y`.
+/// Returns `Ok(Some(false))` if the line starts with `n` or `N`.
+/// Returns `Ok(None)` if the line is empty or cannot be interpreted as a yes/no answer.
 ///
 /// Returns `Err(std::io::Error)` if reading from stdin fails.
-fn ask_default_no() -> Result<bool, std::io::Error> {
-    let ask_result = (|| {
+fn ask_response() -> Result<Option<bool>, std::io::Error> {
+    fn ask_result_text() -> Result<String, std::io::Error> {
         let mut ret = String::new();
         match std::io::stdin().read_line(&mut ret) {
-            Ok(_) => return Ok(ret),
-            Err(e) => return Err(e),
+            Ok(_) => Ok(ret),
+            Err(e) => Err(e),
         }
-    })()?;
-    return Ok(process_answer_default_no(&ask_result));
+    }
+
+    let ans = ask_result_text()?;
+    Ok(process_answer_text(&ans))
 }
 
 #[derive(Parser, Debug)]
@@ -264,9 +266,16 @@ fn main() -> anyhow::Result<()> {
         }
 
         if behavior_flags.ask_user {
-            eprint!("Are these file names correct? [y/{}]: ", Red.paint("N"));
-            if !(ask_default_no()?) {
-                std::process::exit(1);
+            let mut approved = false;
+            for _ in 0..3 {
+                eprint!("Are these file names correct? [y/n]: ");
+                if let Some(answer) = ask_response()? {
+                    approved = answer;
+                    break;
+                }
+            }
+            if !approved {
+                std::process::exit(2);
             }
         }
     } else if !cli_options.force
