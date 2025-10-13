@@ -44,10 +44,7 @@ impl FileNameEncodingType {
     /// Regturns `true` if the file name is correctly decoded in almost all devices
     pub fn is_universal(&self) -> bool {
         use FileNameEncodingType::*;
-        match self {
-            ExplicitRegularUTF8 | ImplicitASCII => true,
-            _ => false,
-        }
+        matches!(self, ExplicitRegularUTF8 | ImplicitASCII)
     }
 }
 
@@ -84,7 +81,7 @@ impl FileNamesDiagnosis {
 
     /// Returns `true` if the ZIP archive is universal (do not have to apply this tool)
     pub fn is_universal_archive(&self) -> bool {
-        return !self.has_implicit_non_ascii_names && !self.has_non_nfc_explicit_utf8_names;
+        !self.has_implicit_non_ascii_names && !self.has_non_nfc_explicit_utf8_names
     }
 }
 
@@ -115,11 +112,11 @@ where
         let eocd = ZipEOCD::from_reader(&mut handler)?;
         let cd_entries = ZipCDEntry::all_from_eocd(&mut handler, &eocd)?;
 
-        return Ok(Self {
+        Ok(Self {
             file_handler: handler,
             eocd,
             cd_entries,
-        });
+        })
     }
 
     /// Returns the file name encoding diagnossis.
@@ -139,7 +136,7 @@ where
                 .any(|cd| {
                     let original_name = String::from_utf8_lossy(&cd.file_name_raw);
                     let nfc_name = compose_from_hfs_nfd(&original_name);
-                    &original_name != &nfc_name
+                    original_name != nfc_name
                 }),
         }
     }
@@ -154,11 +151,11 @@ where
     pub fn get_filename_decoder_index(&self, decoders_list: &[&dyn IDecoder]) -> Option<usize> {
         return filename_decoder::decide_decoder(
             decoders_list,
-            &(&self
+            &self
                 .cd_entries
                 .iter()
                 .flat_map(|cd| vec![&cd.file_name_raw, &cd.file_comment])
-                .collect::<Vec<&Vec<u8>>>()),
+                .collect::<Vec<&Vec<u8>>>(),
         );
     }
 
@@ -173,10 +170,10 @@ where
             .iter()
             .map(|cd| {
                 if cd.is_encoded_in_utf8() {
-                    let original_file_name = String::from_utf8_lossy(&*(cd.file_name_raw));
+                    let original_file_name = String::from_utf8_lossy(&(cd.file_name_raw));
                     let nfc_file_name = compose_from_hfs_nfd(&original_file_name);
                     return FileNameEntry {
-                        encoding_type: if &original_file_name == &nfc_file_name {
+                        encoding_type: if original_file_name == nfc_file_name {
                             ExplicitRegularUTF8
                         } else {
                             ExplicitIrregularUTF8
@@ -190,10 +187,10 @@ where
                         name: ascii_file_name,
                     };
                 }
-                return FileNameEntry {
+                FileNameEntry {
                     encoding_type: ImplicitNonASCII,
                     name: legacy_decoder.to_string_lossy(&cd.file_name_raw),
-                };
+                }
             })
             .collect()
     }
@@ -270,11 +267,11 @@ where
         // EOCD
         self.eocd.cd_size = cd_new_size as u32;
         self.eocd.write(dest_handler)?;
-        return Ok(());
+        Ok(())
     }
 
     /// Returns `Err(ZipReadError)` if the archive has unsupported features (e.g. central directory encryption)
     pub fn check_unsupported_zip_type(&self) -> Result<(), ZipReadError> {
-        return self.eocd.check_unsupported_zip_type();
+        self.eocd.check_unsupported_zip_type()
     }
 }

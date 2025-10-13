@@ -61,9 +61,9 @@ struct LegacyEncodingDecoder {
 
 impl IDecoder for UTF8NFCDecoder {
     fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
-        return String::from_utf8(input.to_vec())
+        String::from_utf8(input.to_vec())
             .map(|s| compose_from_hfs_nfd(&s))
-            .ok();
+            .ok()
     }
     fn to_string_lossy(&self, input: &[u8]) -> String {
         return compose_from_hfs_nfd(&String::from_utf8_lossy(input));
@@ -72,7 +72,7 @@ impl IDecoder for UTF8NFCDecoder {
         return std::str::from_utf8(input).is_ok();
     }
     fn encoding_name(&self) -> &str {
-        return "UTF-8";
+        "UTF-8"
     }
 }
 
@@ -82,7 +82,7 @@ impl IDecoder for ASCIIDecoder {
             return None;
         }
         // UTF-8 is upper compatible with ASCII
-        return String::from_utf8(input.to_vec()).ok();
+        String::from_utf8(input.to_vec()).ok()
     }
     fn to_string_lossy(&self, input: &[u8]) -> String {
         return input
@@ -100,41 +100,41 @@ impl IDecoder for ASCIIDecoder {
 
 impl OEMCPDecoder {
     fn from_codepage(codepage: u16) -> Option<Self> {
-        return Some(Self {
+        Some(Self {
             decoder: DECODING_TABLE_CP_MAP.get(&codepage)?,
             encoding_str: format!("CP{}", codepage),
-        });
+        })
     }
     fn fallback() -> Self {
-        return Self::from_codepage(437).unwrap();
+        Self::from_codepage(437).unwrap()
     }
 }
 
 impl IDecoder for OEMCPDecoder {
     fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
-        return self.decoder.decode_string_checked(input);
+        self.decoder.decode_string_checked(input)
     }
     fn to_string_lossy(&self, input: &[u8]) -> String {
-        return self.decoder.decode_string_lossy(input);
+        self.decoder.decode_string_lossy(input)
     }
     fn encoding_name(&self) -> &str {
-        return &self.encoding_str;
+        &self.encoding_str
     }
 }
 
 impl IDecoder for LegacyEncodingDecoder {
     fn to_string_lossless(&self, input: &[u8]) -> Option<String> {
-        let (result, _, met_invalid_char) = self.decoder.decode(&input);
+        let (result, _, met_invalid_char) = self.decoder.decode(input);
         if met_invalid_char {
             return None;
         }
-        return Some(result.into_owned());
+        Some(result.into_owned())
     }
     fn to_string_lossy(&self, input: &[u8]) -> String {
-        return self.decoder.decode(&input).0.into_owned();
+        return self.decoder.decode(input).0.into_owned();
     }
     fn encoding_name(&self) -> &str {
-        return self.decoder.name();
+        self.decoder.name()
     }
     fn can_decode(&self, input: &[u8]) -> bool {
         !self.decoder.decode(input).2
@@ -144,11 +144,11 @@ impl IDecoder for LegacyEncodingDecoder {
 impl dyn IDecoder {
     /// Returns UTF-8 decoder
     pub fn utf8() -> Box<dyn IDecoder> {
-        return Box::new(UTF8NFCDecoder {});
+        Box::new(UTF8NFCDecoder {})
     }
     /// Returns ASCII decoder
     pub fn ascii() -> Box<dyn IDecoder> {
-        return Box::new(ASCIIDecoder {});
+        Box::new(ASCIIDecoder {})
     }
 
     /// Returns native OEM code pages for the current locale
@@ -164,7 +164,7 @@ impl dyn IDecoder {
                 return Box::new(decoder);
             }
         }
-        return Box::new(OEMCPDecoder::fallback());
+        Box::new(OEMCPDecoder::fallback())
     }
 
     /// Generates an instance of a decoder from encoding name (e.g. `sjis` -> Shift-JIS)
@@ -179,20 +179,20 @@ impl dyn IDecoder {
                 Regex::new("(?i)(OEM[-_]US|PC-8|DOS[-_ ]?Latin[-_ ]?US)").unwrap();
         }
         if let Some(decoder) = encoding_rs::Encoding::for_label(name.as_bytes()) {
-            return Some(Box::new(LegacyEncodingDecoder { decoder: decoder }));
+            return Some(Box::new(LegacyEncodingDecoder { decoder }));
         }
         if let Some(decoder) = OEM_CP_REGEX
             .captures(name)
             .and_then(|captures| captures.get(1))
             .and_then(|match_| -> Option<u16> { match_.as_str().parse().ok() })
-            .and_then(|codepage| OEMCPDecoder::from_codepage(codepage))
+            .and_then(OEMCPDecoder::from_codepage)
         {
             return Some(Box::new(decoder));
         }
         if CP437_REGEX.is_match(name) {
             return Some(Box::new(OEMCPDecoder::fallback()));
         }
-        return None;
+        None
     }
 }
 
@@ -208,14 +208,13 @@ pub fn decide_decoder<T>(decoders: &[&dyn IDecoder], strings: &[T]) -> Option<us
 where
     T: AsRef<[u8]>,
 {
-    for i in 0..decoders.len() {
-        let decoder = decoders[i];
+    for (i, decoder) in decoders.iter().enumerate() {
         if strings
-            .into_iter()
+            .iter()
             .all(|subject| decoder.can_decode(subject.as_ref()))
         {
             return Some(i);
         }
     }
-    return None;
+    None
 }

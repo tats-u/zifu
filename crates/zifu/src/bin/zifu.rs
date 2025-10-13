@@ -195,10 +195,10 @@ struct CLIOptions {
 impl CLIOptions {
     pub fn to_behavior_flags(&self) -> BehaviorFlags {
         let verbose = !self.silent && !self.quiet;
-        return BehaviorFlags {
+        BehaviorFlags {
             verbose,
             ask_user: verbose && !self.yes,
-        };
+        }
     }
 }
 
@@ -316,7 +316,7 @@ fn main() -> anyhow::Result<()> {
         std::fs::rename(output_zip_file_path.as_ref(), &cli_options.input)?;
     }
 
-    return Ok(());
+    Ok(())
 }
 
 #[cfg(test)]
