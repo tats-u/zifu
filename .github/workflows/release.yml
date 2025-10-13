@@ -72,7 +72,7 @@ jobs:
     - name: Upload .deb package as artifact
       uses: actions/upload-artifact@v4
       with:
-        name: deb-package
+        name: deb-package-${{ steps.setup_vars.outputs.target_arch }}
         path: target/debian/*.deb
       if: runner.os == 'Linux'
     - name: Upload binary to create universal binary
@@ -212,14 +212,16 @@ jobs:
       id: get_version
       run: |
         echo VERSION=${GITHUB_REF#refs/tags/} >> $GITHUB_OUTPUT
-        echo DEB_NAME=$(basename $(ls ${{ runner.temp }}/deb-package/*.deb | tail -n 1)) >> $GITHUB_OUTPUT
+        echo DEB_NAME_X64=$(basename $(ls ${{ runner.temp }}/deb-package-x86_64/*.deb | tail -n 1)) >> $GITHUB_OUTPUT
+        echo DEB_NAME_ARM=$(basename $(ls ${{ runner.temp }}/deb-package-aarch64/*.deb | tail -n 1)) >> $GITHUB_OUTPUT
     - name: Upload a Release Asset (ZIP)
       uses: softprops/action-gh-release@v1
       with:
         name: Release ${{ steps.get_version.outputs.VERSION }}
         files: |
           ${{ runner.temp }}/zip-archive-*/zifu-*.zip
-          ${{ runner.temp }}/deb-package/${{ steps.get_version.outputs.DEB_NAME }}
+          ${{ runner.temp }}/deb-package-x86_64/${{ steps.get_version.outputs.DEB_NAME_X64 }}
+          ${{ runner.temp }}/deb-package-aarch64/${{ steps.get_version.outputs.DEB_NAME_ARM }}
     - uses: actions/cache@v4
       with:
         path: |
