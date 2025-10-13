@@ -160,6 +160,8 @@ jobs:
         path: target//${{ steps.setup_vars.outputs.target_triplet }}/release/zifu
       if: runner.os == 'macOS'
   macos-universal:
+    permissions:
+      contents: read
     runs-on: macos-26
     needs:
       - build
