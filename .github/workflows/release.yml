@@ -18,6 +18,8 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-26
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@stable
@@ -93,6 +95,8 @@ jobs:
             arch: i686
     needs:
       - build
+    permissions:
+      contents: read
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@stable
@@ -197,6 +201,8 @@ jobs:
       - build
       - cross
       - macos-universal
+    permissions:
+      contents: write
     steps:
     - uses: actions/checkout@v3
     - uses: actions/download-artifact@v3
