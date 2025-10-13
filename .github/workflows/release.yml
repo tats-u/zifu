@@ -90,9 +90,6 @@ jobs:
           - macos-26
         arch:
           - aarch64
-        include:
-          - os: windows-latest
-            arch: i686
     needs:
       - build
     permissions:
