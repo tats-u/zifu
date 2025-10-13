@@ -1,4 +1,5 @@
 use ansi_term::ANSIGenericString;
+use ansi_term::Colour::Red;
 use anyhow::anyhow;
 use clap::Parser;
 use filename_decoder::IDecoder;
@@ -108,17 +109,21 @@ fn list_names_in_archive(fie_name_entries: &[FileNameEntry], legacy_decoder: &dy
     }
 }
 
-fn process_answer_default_yes(ans: &str) -> bool {
+fn process_answer_default_no(ans: &str) -> bool {
     return match ans.chars().next() {
-        Some('n') | Some('N') => false,
-        None | Some(_) => true,
+        Some('y') | Some('Y') => true,
+        None | Some(_) => false,
     };
 }
 
-/// Returns `Ok(false)` if a line starting with `'n'` (or `'N'`) is input from stdin, otherwise `Ok(true)`.
+/// Reads a line from stdin and interprets it as a yes/no answer.
 ///
-/// Returns `Err(std::io::Error)` if I/O fails.
-fn ask_default_yes() -> Result<bool, std::io::Error> {
+/// Returns `Ok(true)` if the line starts with `'y'` or `'Y'`.
+/// Returns `Ok(false)` if the line is empty, starts with any other character,
+/// or cannot be interpreted as a yes answer.
+///
+/// Returns `Err(std::io::Error)` if reading from stdin fails.
+fn ask_default_no() -> Result<bool, std::io::Error> {
     let ask_result = (|| {
         let mut ret = String::new();
         match std::io::stdin().read_line(&mut ret) {
@@ -126,7 +131,7 @@ fn ask_default_yes() -> Result<bool, std::io::Error> {
             Err(e) => return Err(e),
         }
     })()?;
-    return Ok(process_answer_default_yes(&ask_result));
+    return Ok(process_answer_default_no(&ask_result));
 }
 
 #[derive(Parser, Debug)]
@@ -259,8 +264,8 @@ fn main() -> anyhow::Result<()> {
         }
 
         if behavior_flags.ask_user {
-            eprint!("Are these file names correct? [Y/n]: ");
-            if !(ask_default_yes()?) {
+            eprint!("Are these file names correct? [y/{}]: ", Red.paint("N"));
+            if !(ask_default_no()?) {
                 std::process::exit(1);
             }
         }
