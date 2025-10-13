@@ -328,8 +328,8 @@ mod tests {
         let cli_options = CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip"]);
         let global_flags = cli_options.to_behavior_flags();
 
-        assert_eq!(global_flags.ask_user, true);
-        assert_eq!(global_flags.verbose, true);
+        assert!(global_flags.ask_user);
+        assert!(global_flags.verbose);
 
         assert_eq!(cli_options.input, "before.zip");
         assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
@@ -341,17 +341,17 @@ mod tests {
             CLIOptions::parse_from(vec!["zifu", "before.zip", "after.zip", "-q", "-u", "-l"]);
         let global_flags = cli_options.to_behavior_flags();
 
-        assert_eq!(global_flags.ask_user, false);
-        assert_eq!(global_flags.verbose, false);
+        assert!(!global_flags.ask_user);
+        assert!(!global_flags.verbose);
 
         assert_eq!(cli_options.input, "before.zip");
         assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
         assert_eq!(cli_options.encoding.as_deref(), None);
-        assert_eq!(cli_options.utf8, true);
-        assert_eq!(cli_options.check, false);
-        assert_eq!(cli_options.list, true);
-        assert_eq!(cli_options.force, false);
-        assert_eq!(cli_options.in_place, false);
+        assert!(cli_options.utf8);
+        assert!(!cli_options.check);
+        assert!(cli_options.list);
+        assert!(!cli_options.force);
+        assert!(!cli_options.in_place);
     }
 
     #[test]
@@ -367,17 +367,17 @@ mod tests {
         ]);
         let global_flags = cli_options.to_behavior_flags();
 
-        assert_eq!(global_flags.ask_user, false);
-        assert_eq!(global_flags.verbose, false);
+        assert!(!global_flags.ask_user);
+        assert!(!global_flags.verbose);
 
         assert_eq!(cli_options.input, "before.zip");
         assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
         assert_eq!(cli_options.encoding.as_deref(), Some("sjis"));
-        assert_eq!(cli_options.utf8, false);
-        assert_eq!(cli_options.check, true);
-        assert_eq!(cli_options.list, false);
-        assert_eq!(cli_options.force, false);
-        assert_eq!(cli_options.in_place, false);
+        assert!(!cli_options.utf8);
+        assert!(cli_options.check);
+        assert!(!cli_options.list);
+        assert!(!cli_options.force);
+        assert!(!cli_options.in_place);
     }
 
     #[test]
@@ -392,17 +392,17 @@ mod tests {
         ]);
         let global_flags = cli_options.to_behavior_flags();
 
-        assert_eq!(global_flags.ask_user, false);
-        assert_eq!(global_flags.verbose, true);
+        assert!(!global_flags.ask_user);
+        assert!(global_flags.verbose);
 
         assert_eq!(cli_options.input, "before.zip");
         assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
         assert_eq!(cli_options.encoding.as_deref(), Some("cp437"));
-        assert_eq!(cli_options.utf8, false);
-        assert_eq!(cli_options.check, false);
-        assert_eq!(cli_options.list, false);
-        assert_eq!(cli_options.force, false);
-        assert_eq!(cli_options.in_place, false);
+        assert!(!cli_options.utf8);
+        assert!(!cli_options.check);
+        assert!(!cli_options.list);
+        assert!(!cli_options.force);
+        assert!(!cli_options.in_place);
     }
 
     #[test]
@@ -418,17 +418,17 @@ mod tests {
         ]);
         let global_flags = cli_options.to_behavior_flags();
 
-        assert_eq!(global_flags.ask_user, false);
-        assert_eq!(global_flags.verbose, true);
+        assert!(!global_flags.ask_user);
+        assert!(global_flags.verbose);
 
         assert_eq!(cli_options.input, "before.zip");
         assert_eq!(cli_options.output.as_deref(), Some("after.zip"));
         assert_eq!(cli_options.encoding.as_deref(), Some("gbk"));
-        assert_eq!(cli_options.utf8, false);
-        assert_eq!(cli_options.check, false);
-        assert_eq!(cli_options.list, false);
-        assert_eq!(cli_options.force, true);
-        assert_eq!(cli_options.in_place, false);
+        assert!(!cli_options.utf8);
+        assert!(!cli_options.check);
+        assert!(!cli_options.list);
+        assert!(cli_options.force);
+        assert!(!cli_options.in_place);
     }
 
     #[test]
@@ -437,10 +437,10 @@ mod tests {
         assert_eq!(cli_options.input, "before.zip");
         assert_eq!(cli_options.output.as_deref(), None);
         assert_eq!(cli_options.encoding.as_deref(), None);
-        assert_eq!(cli_options.utf8, false);
-        assert_eq!(cli_options.check, false);
-        assert_eq!(cli_options.list, false);
-        assert_eq!(cli_options.force, false);
-        assert_eq!(cli_options.in_place, true);
+        assert!(!cli_options.utf8);
+        assert!(!cli_options.check);
+        assert!(!cli_options.list);
+        assert!(!cli_options.force);
+        assert!(cli_options.in_place);
     }
 }
