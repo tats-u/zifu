@@ -17,7 +17,7 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-11
+          - macos-26
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@stable
@@ -85,7 +85,7 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-11
+          - macos-26
         arch:
           - aarch64
         include:
@@ -160,7 +160,7 @@ jobs:
         path: target//${{ steps.setup_vars.outputs.target_triplet }}/release/zifu
       if: runner.os == 'macOS'
   macos-universal:
-    runs-on: macos-11
+    runs-on: macos-26
     needs:
       - build
       - cross
