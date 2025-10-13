@@ -94,7 +94,7 @@ impl IDecoder for ASCIIDecoder {
         return input.iter().all(|c| c.is_ascii());
     }
     fn encoding_name(&self) -> &str {
-        return "ASCII";
+        "ASCII"
     }
 }
 

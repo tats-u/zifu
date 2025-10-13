@@ -2,7 +2,7 @@ use std::{
     fs::File,
     io::Cursor,
     io::{BufReader, BufWriter, Read, Seek, SeekFrom},
-    path::PathBuf,
+    path::Path,
     process::Command,
 };
 
@@ -13,7 +13,7 @@ use zifu_core::{
 };
 
 fn open_bufreader(path: &str) -> anyhow::Result<BufReader<File>> {
-    return Ok(BufReader::new(File::open(path)?));
+    Ok(BufReader::new(File::open(path)?))
 }
 
 fn read_all(f: &mut dyn Read) -> Result<Vec<u8>, std::io::Error> {
@@ -22,10 +22,10 @@ fn read_all(f: &mut dyn Read) -> Result<Vec<u8>, std::io::Error> {
 }
 
 /// passord is fixed at `test`
-fn test_command_7z(path: &PathBuf) -> Command {
+fn test_command_7z(path: &Path) -> Command {
     let mut cmd = Command::new("7z");
-    cmd.args(&["t", "-ptest"]).arg(path.as_os_str());
-    return cmd;
+    cmd.args(["t", "-ptest"]).arg(path.as_os_str());
+    cmd
 }
 
 #[test]
@@ -42,15 +42,14 @@ fn convert_and_compare_content_test() -> anyhow::Result<()> {
         anyhow::anyhow!("`sjis` is not suitable encoding name for `IDecoder::from_encoding_name`"),
     )?;
     assert!(
-        matches!(
-            before.get_filename_decoder_index(&vec![&*sjis_decoder]),
-            Some(_)
-        ),
+        before
+            .get_filename_decoder_index(&[&*sjis_decoder])
+            .is_some(),
         "sjis decoder is matched",
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
     assert!(
@@ -69,7 +68,7 @@ fn convert_and_compare_content_test() -> anyhow::Result<()> {
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` still has at least one entry"))?;
     assert_eq!(
         name_entry.name, "テスト.txt",
@@ -107,7 +106,7 @@ fn utf8_unencrypted_archive_test() -> anyhow::Result<()> {
     let decoder = <dyn IDecoder>::utf8();
     let names_list = zip.get_file_names_list(&*decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
     assert!(
@@ -151,15 +150,14 @@ fn zipcrypto_convert_test() -> anyhow::Result<()> {
         anyhow::anyhow!("`sjis` is not suitable encoding name for `IDecoder::from_encoding_name`"),
     )?;
     assert!(
-        matches!(
-            before.get_filename_decoder_index(&vec![&*sjis_decoder]),
-            Some(_)
-        ),
+        before
+            .get_filename_decoder_index(&[&*sjis_decoder])
+            .is_some(),
         "sjis decoder is matched",
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
     assert!(
@@ -178,7 +176,7 @@ fn zipcrypto_convert_test() -> anyhow::Result<()> {
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` still has at least one entry"))?;
     assert_eq!(
         name_entry.name, "テスト.txt",
@@ -221,15 +219,14 @@ fn aes256_convert_test() -> anyhow::Result<()> {
         anyhow::anyhow!("`sjis` is not suitable encoding name for `IDecoder::from_encoding_name`"),
     )?;
     assert!(
-        matches!(
-            before.get_filename_decoder_index(&vec![&*sjis_decoder]),
-            Some(_)
-        ),
+        before
+            .get_filename_decoder_index(&[&*sjis_decoder])
+            .is_some(),
         "sjis decoder is matched",
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
     assert!(
@@ -248,7 +245,7 @@ fn aes256_convert_test() -> anyhow::Result<()> {
     );
     let names_list = before.get_file_names_list(&*sjis_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` still has at least one entry"))?;
     assert_eq!(
         name_entry.name, "テスト.txt",
@@ -301,7 +298,7 @@ fn macos_finder_emulate_test() -> anyhow::Result<()> {
     let decoder = <dyn IDecoder>::utf8();
     let names_list = before.get_file_names_list(&*decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(
         name_entry.name, FILE_NAME,
@@ -326,7 +323,7 @@ fn macos_finder_emulate_test() -> anyhow::Result<()> {
     );
     let names_list = before.get_file_names_list(&*decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(
         name_entry.name, FILE_NAME,
@@ -354,12 +351,14 @@ fn implicit_utf8_test() -> anyhow::Result<()> {
     );
     let utf8_decoder = UTF8NFCDecoder {};
     assert!(
-        matches!(before.get_filename_decoder_index(&[&utf8_decoder]), Some(_)),
+        before
+            .get_filename_decoder_index(&[&utf8_decoder])
+            .is_some(),
         "sjis decoder is matched",
     );
     let names_list = before.get_file_names_list(&utf8_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` has at least one entry"))?;
     assert_eq!(name_entry.name, "テスト.txt", "file name is `テスト.txt`");
     assert!(
@@ -378,7 +377,7 @@ fn implicit_utf8_test() -> anyhow::Result<()> {
     );
     let names_list = before.get_file_names_list(&utf8_decoder);
     let name_entry = names_list
-        .get(0)
+        .first()
         .ok_or(anyhow::anyhow!("`names_list` still has at least one entry"))?;
     assert_eq!(
         name_entry.name, "テスト.txt",
