@@ -1,4 +1,4 @@
-use ansi_term::ANSIGenericString;
+use ansiterm::ANSIGenericString;
 use anyhow::anyhow;
 use clap::Parser;
 use filename_decoder::IDecoder;
@@ -7,7 +7,7 @@ use rand::rngs::StdRng;
 use rand::{RngCore, SeedableRng};
 use std::borrow::Cow;
 use std::fs::File;
-use std::io::{BufReader, BufWriter};
+use std::io::{stdout, BufReader, BufWriter, IsTerminal};
 use std::vec;
 use zifu_core::InputZIPArchive;
 use zifu_core::{filename_decoder, FileNameEncodingType, FileNameEntry, FileNamesDiagnosis};
@@ -30,17 +30,17 @@ pub struct BehaviorFlags {
 }
 
 /// Returns reset given ANSI style if non-tty
-fn prepare_for_non_tty(style: ansi_term::Style) -> ansi_term::Style {
-    if atty::is(atty::Stream::Stdout) {
+fn prepare_for_non_tty(style: ansiterm::Style) -> ansiterm::Style {
+    if stdout().is_terminal() {
         style
     } else {
-        ansi_term::Style::default()
+        ansiterm::Style::default()
     }
 }
 
 /// Prints messages (`.get_status_primary_message()` & `.get_statius_note()`)
 pub fn print_status_message(diagnosis: &FileNamesDiagnosis) {
-    use ansi_term::Colour::*;
+    use ansiterm::Colour::*;
     println!(
         "{}  {}",
         prepare_for_non_tty(
@@ -65,7 +65,7 @@ pub fn print_status_message(diagnosis: &FileNamesDiagnosis) {
 }
 
 fn print_you_do_not_have_to_apply_this_tool(diagnosis: &FileNamesDiagnosis) {
-    use ansi_term::Colour::*;
+    use ansiterm::Colour::*;
     eprintln!(
         "{}  {}\n{}  {}",
         prepare_for_non_tty(Green.bold()).paint(diagnosis.get_status_primary_message()),
@@ -83,7 +83,7 @@ fn print_you_do_not_have_to_apply_this_tool(diagnosis: &FileNamesDiagnosis) {
 /// * `utf8_decoder` - UTF-8 decoder (used when explicitly encoded in UTF-8)
 /// * `legacy_decoder` - Legacy charset decoder (used otherwise)
 fn list_names_in_archive(fie_name_entries: &[FileNameEntry], legacy_decoder: &dyn IDecoder) {
-    use ansi_term::Colour::*;
+    use ansiterm::Colour::*;
     use FileNameEncodingType::*;
     static REGULAR_UTF8: Lazy<ANSIGenericString<'static, str>> =
         Lazy::new(|| prepare_for_non_tty(Green.bold()).paint("REGULAR UTF-8"));
