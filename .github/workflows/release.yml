@@ -234,3 +234,4 @@ jobs:
         toolchain: stable
     - name: Upload crate
       run: cargo publish --token ${{ secrets.CARGO_TOKEN }}
+      working-directory: ./crates/zifu
