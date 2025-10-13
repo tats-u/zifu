@@ -17,6 +17,7 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
+          - ubuntu-24.04-arm
           - macos-26
     permissions:
       contents: read
@@ -85,7 +86,6 @@ jobs:
     strategy:
       matrix:
         os:
-          - ubuntu-latest
           - windows-latest
         arch:
           - aarch64
